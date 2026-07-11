@@ -51,5 +51,7 @@ jobs:
           path: |
             ~/.claude
             ~/.reasonix
-            ~/.local/*/opencode
+            ~/.local/share/opencode
+            /tmp/upterm-data/config/opencode
+            /tmp/upterm-data/state/opencode
             ${{ github.workspace }}/*
