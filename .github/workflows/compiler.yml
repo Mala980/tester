@@ -13,16 +13,16 @@ jobs:
     steps:
       - name: Prepare
         run: |
-          sudo docker image prune --all --force
-          [[ -n "${AGENT_TOOLSDIRECTORY}" ]] && sudo rm -rf "${AGENT_TOOLSDIRECTORY}"
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android 2>/dev/null
+          # sudo docker image prune --all --force
+          # [[ -n "${AGENT_TOOLSDIRECTORY}" ]] && sudo rm -rf "${AGENT_TOOLSDIRECTORY}"
+          # sudo rm -rf /usr/share/dotnet /usr/local/lib/android 2>/dev/null
           sudo apt-get -y update
           sudo apt-get -y install aria2 wget curl ffmpeg nodejs npm golang-go
           sudo systemctl daemon-reload
           sudo apt-get -y autoremove --purge
           sudo apt-get clean
-          sudo sed -i '/NVM_DIR/d;/skel/d' /root/{.bashrc,.profile}
-          sudo rm -rf ~/{.cargo,.dotnet,.rustup}
+          # sudo sed -i '/NVM_DIR/d;/skel/d' /root/{.bashrc,.profile}
+          # sudo rm -rf ~/{.cargo,.dotnet,.rustup}
           # sudo timedatectl set-timezone Asia/Jakarta
           sudo hostnamectl set-hostname chewy
 
