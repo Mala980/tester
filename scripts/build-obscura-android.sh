@@ -6,16 +6,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/env.sh"
 ensure_ndk
 
-export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$NDK_BIN/aarch64-linux-android${ANDROID_API}-clang"
+# Obscura's V8 libc++ needs bionic symbols introduced in API 26 (strtof_l,
+# strtod_l), so the obscura binary links against the API 26 stubs (the device
+# runtime provides them on any Android 8.0+ device).
+export OBSCURA_API="${OBSCURA_API:-26}"
+export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$NDK_BIN/aarch64-linux-android${OBSCURA_API}-clang"
 export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="$NDK_BIN/llvm-ar"
 export ANDROID_NDK_ROOT="$ANDROID_NDK_HOME"
 export ANDROID_NDK_HOME="$ANDROID_NDK_HOME"
 # cc-rs (ring) needs the unversioned tool names on PATH
-ln -sf "aarch64-linux-android${ANDROID_API}-clang" "$NDK_BIN/aarch64-linux-android-clang"
-ln -sf "aarch64-linux-android${ANDROID_API}-clang++" "$NDK_BIN/aarch64-linux-android-clang++"
+ln -sf "aarch64-linux-android${OBSCURA_API}-clang" "$NDK_BIN/aarch64-linux-android-clang"
+ln -sf "aarch64-linux-android${OBSCURA_API}-clang++" "$NDK_BIN/aarch64-linux-android-clang++"
 export PATH="$NDK_BIN:$PATH"
-export CC_aarch64-linux-android="$NDK_BIN/aarch64-linux-android${ANDROID_API}-clang"
+export CC_aarch64-linux-android="$NDK_BIN/aarch64-linux-android${OBSCURA_API}-clang"
 export AR_aarch64-linux-android="$NDK_BIN/llvm-ar"
+# __clear_cache comes from the NDK compiler-rt; rustc's -nodefaultlibs link
+# doesn't pull it, so inject the archive at the final link.
+export OBSCURA_RT="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-aarch64-android.a"
 export LIBCLANG_PATH="${LIBCLANG_PATH:-$(dirname "$(find /usr/lib/llvm-*/lib -name 'libclang.so*' 2>/dev/null | head -1)")}"
 
 SRC="$SRC_DIR/obscura"
@@ -121,6 +128,14 @@ V8_FROM_SOURCE=1 NUM_JOBS="$JOBS" CARGO_BUILD_JOBS="$JOBS" \
   CARGO_TARGET_DIR="$CARGO_TARGET_DIR" \
   cargo build --release --target "$RUST_TARGET" \
   --manifest-path "$SRC/Cargo.toml" -p obscura-cli --bins --features render
+# Final link needs the NDK compiler-rt (__clear_cache); rustc's -nodefaultlibs
+# link omits it. Target-scoped rustflags affect only the final binary link.
+mkdir -p "$SRC/.cargo"
+cat >> "$SRC/.cargo/config.toml" <<EOF
+[target.aarch64-linux-android]
+rustflags = ["-C", "link-arg=$OBSCURA_RT"]
+EOF
+
 
 # Cache the v8 static lib for subsequent runs
 V8_LIB=$(find "$CARGO_TARGET_DIR" -name 'librusty_v8.a' -path '*release*' | head -1)
