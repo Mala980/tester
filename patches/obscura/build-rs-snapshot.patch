@@ -1,34 +1,59 @@
 diff --git a/crates/obscura-js/build.rs b/crates/obscura-js/build.rs
-index 04e22ea..d516004 100644
+index 04e22ea..d47bd83 100644
 --- a/crates/obscura-js/build.rs
 +++ b/crates/obscura-js/build.rs
-@@ -9,6 +9,19 @@ fn main() {
+@@ -1,38 +1,25 @@
+ use std::path::PathBuf;
  
-     let bootstrap_js = include_str!("js/bootstrap.js");
+ fn main() {
+-    println!("cargo:rerun-if-changed=js/bootstrap.js");
+     println!("cargo:rerun-if-changed=build.rs");
  
-+    // Android/Termux build: V8 snapshots are architecture-specific, so a
-+    // snapshot generated on this (x86_64) host would crash at isolate init
-+    // on the aarch64 device. The CI pipeline generates the snapshot natively
-+    // on an ARM64 runner and injects it via OBSCURA_SNAPSHOT_FILE.
-+    if let Ok(preset) = std::env::var("OBSCURA_SNAPSHOT_FILE") {
-+        std::fs::copy(&preset, &snapshot_path).expect("Failed to copy OBSCURA_SNAPSHOT_FILE");
-+        println!(
-+            "cargo:rustc-env=OBSCURA_SNAPSHOT_PATH={}",
-+            snapshot_path.display()
-+        );
-+        return;
-+    }
-+
-     let output = deno_core::snapshot::create_snapshot(
-         deno_core::snapshot::CreateSnapshotOptions {
-             cargo_manifest_dir: env!("CARGO_MANIFEST_DIR"),
-@@ -27,6 +40,9 @@ fn main() {
-     .expect("Failed to create V8 snapshot");
+     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+     let snapshot_path = out_dir.join("OBSCURA_SNAPSHOT.bin");
  
-     std::fs::write(&snapshot_path, &*output.output).expect("Failed to write snapshot");
-+    if let Ok(out) = std::env::var("OBSCURA_SNAPSHOT_OUT") {
-+        std::fs::copy(&snapshot_path, &out).expect("Failed to copy snapshot to OBSCURA_SNAPSHOT_OUT");
-+    }
-     println!(
-         "cargo:rustc-env=OBSCURA_SNAPSHOT_PATH={}",
-         snapshot_path.display()
+-    let bootstrap_js = include_str!("js/bootstrap.js");
+-
+-    let output = deno_core::snapshot::create_snapshot(
+-        deno_core::snapshot::CreateSnapshotOptions {
+-            cargo_manifest_dir: env!("CARGO_MANIFEST_DIR"),
+-            startup_snapshot: None,
+-            skip_op_registration: true,
+-            extensions: vec![],
+-            extension_transpiler: None,
+-            with_runtime_cb: Some(Box::new(move |runtime| {
+-                runtime
+-                    .execute_script("<obscura:bootstrap>", bootstrap_js.to_string())
+-                    .expect("bootstrap.js should not fail during snapshot creation");
+-            })),
+-        },
+-        None,
+-    )
+-    .expect("Failed to create V8 snapshot");
+-
+-    std::fs::write(&snapshot_path, &*output.output).expect("Failed to write snapshot");
+-    println!(
+-        "cargo:rustc-env=OBSCURA_SNAPSHOT_PATH={}",
+-        snapshot_path.display()
+-    );
+-
+-    for file in &output.files_loaded_during_snapshot {
+-        println!("cargo:rerun-if-changed={}", file.display());
+-    }
++    // Android/Termux cross-build: V8 snapshots are architecture-specific, so
++    // the CI pipeline generates them natively (see scripts/make-snapshots-qemu.sh)
++    // and injects them via OBSCURA_SNAPSHOT_FILE. Generating one here would
++    // bake a snapshot for the build host's architecture, which crashes at
++    // isolate init on the aarch64 device.
++    //
++    // Note: this build script intentionally does not depend on deno_core
++    // anymore (the [build-dependencies] entry is removed in this patch), which
++    // also avoids an unnecessary host V8 source build.
++    let preset = std::env::var("OBSCURA_SNAPSHOT_FILE").unwrap_or_else(|_| {
++        panic!(
++            "OBSCURA_SNAPSHOT_FILE must be set for android cross-builds              (see scripts/make-snapshots-qemu.sh)"
++        )
++    });
++    std::fs::copy(&preset, &snapshot_path).expect("Failed to copy OBSCURA_SNAPSHOT_FILE");
++    println!("cargo:rustc-env=OBSCURA_SNAPSHOT_PATH={}", snapshot_path.display());
+ }

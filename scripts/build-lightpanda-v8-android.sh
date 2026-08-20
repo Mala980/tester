@@ -31,9 +31,30 @@ log "Preparing V8 sources (gclient sync + clang)..."
 zig build -Dtarget=aarch64-linux-android -Doptimize=ReleaseFast prepare-v8 \
   --cache-dir "$CACHE_DIR/zig-cache" --global-cache-dir "$CACHE_DIR/zig-global"
 
+# Re-run gclient with checkout_android so the android-gated deps
+# (cpu_features, catapult, colorama, android_platform, ...) are fetched at
+# their pinned commits. V8's DEPS gates these on `checkout_android`.
+V8_SRC="$V8_DIR/.lp-cache/v8-${LIGHTPANDA_V8_VERSION}"
+cat > "$V8_SRC/.gclient" <<EOF
+solutions = [
+  {
+    "name": ".",
+    "url": "https://chromium.googlesource.com/v8/v8.git@${LIGHTPANDA_V8_VERSION}",
+    "deps_file": "DEPS",
+    "managed": False,
+    "custom_deps": {},
+    "custom_vars": {
+      "checkout_android": True,
+    },
+  },
+]
+EOF
+(cd "$V8_SRC" && PATH="$V8_DIR/.lp-cache/depot_tools-${LIGHTPANDA_V8_VERSION}:$PATH" gclient sync --nohooks) \
+  | tail -5
+
 # Point Chromium's build config at our NDK: V8's DEPS does not fetch the
 # Android NDK itself; it is expected at third_party/android_toolchain/ndk.
-NDK_TARGET="$V8_DIR/.lp-cache/v8-${LIGHTPANDA_V8_VERSION}/third_party/android_toolchain"
+NDK_TARGET="$V8_SRC/third_party/android_toolchain"
 mkdir -p "$NDK_TARGET"
 ln -sfn "$ANDROID_NDK_HOME" "$NDK_TARGET/ndk"
 

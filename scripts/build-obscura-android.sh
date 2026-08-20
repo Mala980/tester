@@ -63,23 +63,23 @@ fi
 V8_LIB_CACHE="$CACHE_DIR/librusty_v8_release_aarch64-linux-android.a"
 CARGO_TARGET_DIR="$CACHE_DIR/obscura-target"
 
-# The crates.io tarball of the v8 crate omits build/android/pylib/results/
-# presentation files; gn gen fails without them. Restore from Chromium's
-# build repo (same content, standalone python).
+# The crates.io tarball of the v8 crate omits several build/android and pylib
+# files; gn gen fails without them. Restore from Chromium's build repo.
 repair_v8_crate() {
-  local d="$v8_crate_dir/build/android/pylib/results/presentation"
-  if [ ! -f "$d/test_results_presentation.pydeps" ]; then
-    log "Repairing vendored build/android pylib presentation files..."
-    mkdir -p "$d/javascript" "$d/template"
-    for f in __init__.py standard_gtest_merge.py test_results_presentation.py test_results_presentation.pydeps; do
-      curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/android/pylib/results/presentation/$f?format=TEXT" | base64 -d > "$d/$f"
+  local b="$v8_crate_dir/build"
+  local d="$b/android/pylib/results/presentation"
+  mkdir -p "$d/javascript" "$d/template"
+  for f in __init__.py standard_gtest_merge.py test_results_presentation.py test_results_presentation.pydeps; do
+    curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/android/pylib/results/presentation/$f?format=TEXT" | base64 -d > "$d/$f"
+  done
+  for sub in javascript template; do
+    for f in $(curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/android/pylib/results/presentation/$sub/?format=JSON" 2>/dev/null | tail -n +2 | python3 -c "import json,sys; print(' '.join(e['name'] for e in json.load(sys.stdin)['entries']))"); do
+      curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/android/pylib/results/presentation/$sub/$f?format=TEXT" | base64 -d > "$d/$sub/$f"
     done
-    for sub in javascript template; do
-      for f in $(curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/android/pylib/results/presentation/$sub/?format=JSON" 2>/dev/null | tail -n +2 | python3 -c "import json,sys; print(' '.join(e['name'] for e in json.load(sys.stdin)['entries']))"); do
-        curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/android/pylib/results/presentation/$sub/$f?format=TEXT" | base64 -d > "$d/$sub/$f"
-      done
-    done
-  fi
+  done
+  for f in protoc_java android/apk_operations android/devil_chromium android/resource_sizes android/test_runner; do
+    [ -f "$b/$f.pydeps" ] || curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/${f}.pydeps?format=TEXT" | base64 -d > "$b/$f.pydeps" || true
+  done
 }
 [ -n "$v8_crate_dir" ] && repair_v8_crate
 

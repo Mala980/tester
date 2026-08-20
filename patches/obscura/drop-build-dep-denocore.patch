@@ -1,0 +1,14 @@
+diff --git a/crates/obscura-js/Cargo.toml b/crates/obscura-js/Cargo.toml
+index ac4e3f8..1a6c352 100644
+--- a/crates/obscura-js/Cargo.toml
++++ b/crates/obscura-js/Cargo.toml
+@@ -16,9 +16,6 @@ stealth = ["obscura-net/stealth"]
+ # rasterizes screenshots. Off by default so the scraping build stays lean.
+ render = ["dep:obscura-render", "obscura-render/paint"]
+ 
+-[build-dependencies]
+-deno_core = "0.350"
+-
+ [dependencies]
+ obscura-dom = { workspace = true }
+ obscura-net = { workspace = true }
