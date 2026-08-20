@@ -100,8 +100,9 @@ new = '''    .clang_args(["-x", "c++", "-std=c++20", "-Iv8/include", "-I."])
                 vec![
                     "--target=aarch64-linux-android24".to_string(),
                     format!("--sysroot={sysroot}"),
-                    format!("-isystem{sysroot}/usr/include"),
+                    // libc++ headers MUST precede the C library headers
                     format!("-isystem{sysroot}/usr/include/c++/v1"),
+                    format!("-isystem{sysroot}/usr/include"),
                 ]
             })
             .unwrap_or_default(),
