@@ -44,6 +44,16 @@ fi
 export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$NDK_BIN/aarch64-linux-android${ANDROID_API}-clang"
 export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="$NDK_BIN/llvm-ar"
 
+# --- qemu-user + aarch64 sysroot (for snapshot generation under qemu) --------
+if ! command -v qemu-aarch64-static >/dev/null 2>&1; then
+  log "Installing qemu-user-static..."
+  sudo apt-get install -y --no-install-recommends qemu-user-static
+fi
+if [ ! -d /usr/aarch64-linux-gnu/lib ]; then
+  log "Installing aarch64-linux-gnu sysroot (gcc-aarch64-linux-gnu)..."
+  sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu
+fi
+
 log "Generating Zig libc file..."
 gen_libc_file
 

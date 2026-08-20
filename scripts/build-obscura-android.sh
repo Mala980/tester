@@ -28,17 +28,19 @@ if ! grep -q 'OBSCURA_SNAPSHOT_FILE' "$SRC/crates/obscura-js/build.rs"; then
 fi
 
 # --- Architecture-correct V8 snapshot ---------------------------------------
-# Generated natively on an ARM64 runner (see scripts/snapshot-arm64.sh) and
-# downloaded by the workflow; fall back to an empty snapshot file so the build
-# still succeeds (a snapshotless binary would need the runtime-bootstrap
-# patch; for now this keeps the pipeline unblocked).
+# Generated with qemu-user (scripts/make-snapshots-qemu.sh) using the v8 crate's
+# prebuilt aarch64-linux-gnu library; see also scripts/snapshot-arm64.sh for the
+# native-ARM-runner alternative.
 SNAPSHOT_FILE="${OBSCURA_SNAPSHOT_FILE:-$CACHE_DIR/obscura-snapshot.bin}"
-if [ -f "$SNAPSHOT_FILE" ]; then
+if [ -f "$SNAPSHOT_FILE" ] && [ -s "$SNAPSHOT_FILE" ]; then
   log "Using ARM64 snapshot: $SNAPSHOT_FILE ($(du -h "$SNAPSHOT_FILE" | cut -f1))"
 else
-  log "WARNING: no ARM64 snapshot found — creating an empty placeholder;"
-  log "        the binary will fail at isolate init if it is x86_64."
-  dd if=/dev/zero of="$SNAPSHOT_FILE" bs=1 count=1 2>/dev/null
+  log "No snapshot present — generating it with qemu-user..."
+  "$SCRIPT_DIR/make-snapshots-qemu.sh" "$SRC_DIR/obscura" 0 || true
+  SNAPSHOT_FILE="$CACHE_DIR/obscura-snapshot.bin"
+  if [ ! -s "$SNAPSHOT_FILE" ]; then
+    die "Failed to generate the ARM64 V8 snapshot (required by obscura)"
+  fi
 fi
 export OBSCURA_SNAPSHOT_FILE="$SNAPSHOT_FILE"
 

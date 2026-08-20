@@ -36,10 +36,23 @@ mkdir -p "$PREBUILT_DIR"
 cp "$V8_ARCHIVE" "$PREBUILT_DIR/libc_v8_${LIGHTPANDA_V8_VERSION}_android_aarch64.a"
 
 # --- Zig build ---------------------------------------------------------------
+# Embed the architecture-correct snapshot (generated with qemu-user) for fast
+# startup; if unavailable lightpanda creates its snapshot at startup instead.
+SNAP_OPT=""
+if [ ! -s "$CACHE_DIR/lightpanda-snapshot.bin" ]; then
+  log "No lightpanda snapshot — generating it with qemu-user..."
+  "$SCRIPT_DIR/make-snapshots-qemu.sh" "$SRC_DIR/obscura" 1 "$SRC" || true
+fi
+if [ -s "$CACHE_DIR/lightpanda-snapshot.bin" ]; then
+  cp "$CACHE_DIR/lightpanda-snapshot.bin" "$SRC/snapshot.bin"
+  SNAP_OPT="-Dsnapshot_path=snapshot.bin"
+  log "Embedding lightpanda snapshot"
+fi
+
 log "zig build lightpanda (android, ReleaseFast)..."
 cd "$SRC"
 ZIG_LOCAL_CACHE_DIR="$CACHE_DIR/lightpanda-zig-cache" \
-zig build -Dtarget=aarch64-linux-android -Doptimize=ReleaseFast \
+zig build -Dtarget=aarch64-linux-android -Doptimize=ReleaseFast $SNAP_OPT \
   --libc "$ANDROID_LIBC_FILE" \
   --cache-dir "$SRC/.zig-cache" \
   --global-cache-dir "$CACHE_DIR/zig-global" \

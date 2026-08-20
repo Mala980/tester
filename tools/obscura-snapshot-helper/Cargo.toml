@@ -1,0 +1,12 @@
+[package]
+name = "obscura-snapshot-helper"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+deno_core = "0.350"
+
+# Unwinding is required (same profile as obscura's workspace).
+[profile.release]
+panic = "unwind"
