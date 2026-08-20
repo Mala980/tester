@@ -158,6 +158,7 @@ stage_bins "default"   # render
 if [ "${BUILD_NO_RENDER:-1}" = "1" ]; then
   log "Building obscura (no-render)..."
   V8_FROM_SOURCE=1 NUM_JOBS="$JOBS" CARGO_BUILD_JOBS="$JOBS" \
+    OBSCURA_SNAPSHOT_FILE="$SNAPSHOT_FILE" \
     CARGO_TARGET_DIR="$CARGO_TARGET_DIR" \
     cargo build --release --target "$RUST_TARGET" \
     --manifest-path "$SRC/Cargo.toml" -p obscura-cli --bins --no-default-features
@@ -167,6 +168,7 @@ fi
 if [ "${BUILD_STEALTH:-1}" = "1" ]; then
   log "Building obscura (render+stealth — BoringSSL via btls-sys)..."
   V8_FROM_SOURCE=1 NUM_JOBS="$JOBS" CARGO_BUILD_JOBS="$JOBS" \
+    OBSCURA_SNAPSHOT_FILE="$SNAPSHOT_FILE" \
     CARGO_TARGET_DIR="$CARGO_TARGET_DIR" \
     cargo build --release --target "$RUST_TARGET" \
     --manifest-path "$SRC/Cargo.toml" -p obscura-cli --bins --features render,stealth
