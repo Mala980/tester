@@ -65,6 +65,8 @@ CARGO_TARGET_DIR="$CACHE_DIR/obscura-target"
 
 # The crates.io tarball of the v8 crate omits several build/android and pylib
 # files; gn gen fails without them. Restore from Chromium's build repo.
+# Also patch its bindgen clang args so android parsing uses the NDK sysroot
+# and target (host libclang + glibc headers cannot parse NDK libc++).
 repair_v8_crate() {
   local b="$v8_crate_dir/build"
   local d="$b/android/pylib/results/presentation"
@@ -80,6 +82,36 @@ repair_v8_crate() {
   for f in protoc_java android/apk_operations android/devil_chromium android/resource_sizes android/test_runner; do
     [ -f "$b/$f.pydeps" ] || curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/${f}.pydeps?format=TEXT" | base64 -d > "$b/$f.pydeps" || true
   done
+  # bindgen needs the NDK sysroot + target for android (registry patch)
+  local br="$v8_crate_dir/build.rs"
+  if ! grep -q 'isystem{sysroot}/usr/include/c++/v1' "$br"; then
+    python3 - "$br" <<'PY2'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+old = '    .clang_args(["-x", "c++", "-std=c++20", "-Iv8/include", "-I."])'
+new = '''    .clang_args(["-x", "c++", "-std=c++20", "-Iv8/include", "-I."])
+    .clang_args(
+        std::env::var("ANDROID_NDK_HOME")
+            .map(|ndk| {
+                let sysroot = format!(
+                    "{ndk}/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+                );
+                vec![
+                    "--target=aarch64-linux-android24".to_string(),
+                    format!("--sysroot={sysroot}"),
+                    format!("-isystem{sysroot}/usr/include"),
+                    format!("-isystem{sysroot}/usr/include/c++/v1"),
+                ]
+            })
+            .unwrap_or_default(),
+    )'''
+assert old in s, "bindgen clang_args not found"
+open(p, "w").write(s.replace(old, new))
+print("patched bindgen clang args")
+PY2
+  fi
+  export LIBCLANG_PATH="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib"
 }
 [ -n "$v8_crate_dir" ] && repair_v8_crate
 
