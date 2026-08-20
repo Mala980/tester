@@ -44,6 +44,10 @@ fi
 export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$NDK_BIN/aarch64-linux-android${ANDROID_API}-clang"
 export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="$NDK_BIN/llvm-ar"
 
+# cc-rs (e.g. the `ring` crate) looks up the unversioned tool name on PATH.
+ln -sf "aarch64-linux-android${ANDROID_API}-clang" "$NDK_BIN/aarch64-linux-android-clang"
+ln -sf "aarch64-linux-android${ANDROID_API}-clang++" "$NDK_BIN/aarch64-linux-android-clang++"
+
 # --- qemu-user + aarch64 sysroot (for snapshot generation under qemu) --------
 if ! command -v qemu-aarch64-static >/dev/null 2>&1; then
   log "Installing qemu-user-static..."

@@ -10,6 +10,12 @@ export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$NDK_BIN/aarch64-linux-android
 export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="$NDK_BIN/llvm-ar"
 export ANDROID_NDK_ROOT="$ANDROID_NDK_HOME"
 export ANDROID_NDK_HOME="$ANDROID_NDK_HOME"
+# cc-rs (ring) needs the unversioned tool names on PATH
+ln -sf "aarch64-linux-android${ANDROID_API}-clang" "$NDK_BIN/aarch64-linux-android-clang"
+ln -sf "aarch64-linux-android${ANDROID_API}-clang++" "$NDK_BIN/aarch64-linux-android-clang++"
+export PATH="$NDK_BIN:$PATH"
+export CC_aarch64-linux-android="$NDK_BIN/aarch64-linux-android${ANDROID_API}-clang"
+export AR_aarch64-linux-android="$NDK_BIN/llvm-ar"
 export LIBCLANG_PATH="${LIBCLANG_PATH:-$(dirname "$(find /usr/lib/llvm-*/lib -name 'libclang.so*' 2>/dev/null | head -1)")}"
 
 SRC="$SRC_DIR/obscura"
@@ -56,6 +62,26 @@ fi
 # Pre-built librusty_v8.a cache: skip the full V8 re-compile if cached
 V8_LIB_CACHE="$CACHE_DIR/librusty_v8_release_aarch64-linux-android.a"
 CARGO_TARGET_DIR="$CACHE_DIR/obscura-target"
+
+# The crates.io tarball of the v8 crate omits build/android/pylib/results/
+# presentation files; gn gen fails without them. Restore from Chromium's
+# build repo (same content, standalone python).
+repair_v8_crate() {
+  local d="$v8_crate_dir/build/android/pylib/results/presentation"
+  if [ ! -f "$d/test_results_presentation.pydeps" ]; then
+    log "Repairing vendored build/android pylib presentation files..."
+    mkdir -p "$d/javascript" "$d/template"
+    for f in __init__.py standard_gtest_merge.py test_results_presentation.py test_results_presentation.pydeps; do
+      curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/android/pylib/results/presentation/$f?format=TEXT" | base64 -d > "$d/$f"
+    done
+    for sub in javascript template; do
+      for f in $(curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/android/pylib/results/presentation/$sub/?format=JSON" 2>/dev/null | tail -n +2 | python3 -c "import json,sys; print(' '.join(e['name'] for e in json.load(sys.stdin)['entries']))"); do
+        curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/android/pylib/results/presentation/$sub/$f?format=TEXT" | base64 -d > "$d/$sub/$f"
+      done
+    done
+  fi
+}
+[ -n "$v8_crate_dir" ] && repair_v8_crate
 
 log "Building obscura (render) for $RUST_TARGET — V8 from source, this is the long step..."
 V8_FROM_SOURCE=1 NUM_JOBS="$JOBS" CARGO_BUILD_JOBS="$JOBS" \
