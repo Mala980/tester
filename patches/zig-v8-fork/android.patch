@@ -1,0 +1,29 @@
+diff --git a/build.zig b/build.zig
+index caafa95..c4cd98a 100644
+--- a/build.zig
++++ b/build.zig
+@@ -33,6 +33,7 @@ const GnArgs = struct {
+     fn asString(self: GnArgs, b: *std.Build, target: std.Build.ResolvedTarget) ![]const u8 {
+         const tag = target.result.os.tag;
+         const arch = target.result.cpu.arch;
++        const abi = target.result.abi;
+ 
+         var args: std.ArrayList(u8) = .empty;
+         const gpa = b.allocator;
+@@ -64,7 +65,15 @@ const GnArgs = struct {
+                 try args.appendSlice(gpa, "v8_enable_webassembly=false\n");
+             },
+             .linux => {
+-                if (arch == .aarch64) {
++                if (abi.isAndroid()) {
++                    // Cross-compile V8 for Android/arm64. The NDK is expected
++                    // at v8/third_party/android_toolchain/ndk (Chromium's
++                    // standard location); our build script symlinks the NDK
++                    // there after the gclient sync step.
++                    try args.appendSlice(gpa, "target_os=\"android\"\n");
++                    try args.appendSlice(gpa, "target_cpu=\"arm64\"\n");
++                    try args.appendSlice(gpa, "treat_warnings_as_errors=false\n");
++                } else if (arch == .aarch64) {
+                     try args.appendSlice(gpa, "clang_base_path=\"/usr/lib/llvm-23\"\n");
+                     try args.appendSlice(gpa, "clang_use_chrome_plugins=false\n");
+                     try args.appendSlice(gpa, "treat_warnings_as_errors=false\n");
