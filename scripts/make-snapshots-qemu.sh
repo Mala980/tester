@@ -30,7 +30,8 @@ make_obscura_snapshot() {
 
   log "Building obscura-snapshot-helper (aarch64-unknown-linux-gnu)..."
   local helper_dir="$SCRIPT_DIR/../tools/obscura-snapshot-helper"
-  CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
+  CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER="$(which aarch64-linux-gnu-gcc)" \
+    CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-L /usr/aarch64-linux-gnu/lib" \
     CARGO_BUILD_JOBS="$JOBS" \
     cargo build --release --target aarch64-unknown-linux-gnu --manifest-path "$helper_dir/Cargo.toml"
 

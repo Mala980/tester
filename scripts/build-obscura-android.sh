@@ -18,8 +18,8 @@ export ANDROID_NDK_HOME="$ANDROID_NDK_HOME"
 ln -sf "aarch64-linux-android${OBSCURA_API}-clang" "$NDK_BIN/aarch64-linux-android-clang"
 ln -sf "aarch64-linux-android${OBSCURA_API}-clang++" "$NDK_BIN/aarch64-linux-android-clang++"
 export PATH="$NDK_BIN:$PATH"
-export CC_aarch64-linux-android="$NDK_BIN/aarch64-linux-android${OBSCURA_API}-clang"
-export AR_aarch64-linux-android="$NDK_BIN/llvm-ar"
+export CC_aarch64_linux_android="$NDK_BIN/aarch64-linux-android${OBSCURA_API}-clang"
+export AR_aarch64_linux_android="$NDK_BIN/llvm-ar"
 # __clear_cache comes from the NDK compiler-rt; rustc's -nodefaultlibs link
 # doesn't pull it, so inject the archive at the final link.
 export OBSCURA_RT="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-aarch64-android.a"
