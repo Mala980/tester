@@ -3,113 +3,45 @@ name: Build Android/Termux aarch64
 on:
   workflow_dispatch:
     inputs:
-      v8_version:
-        description: 'V8 version to build'
-        required: false
-        default: '12.0.267'
-      obscura_version:
-        description: 'Obscura version/branch to build'
-        required: false
-        default: 'main'
-      lightpanda_version:
-        description: 'Lightpanda version/branch to build'
-        required: false
-        default: 'main'
       debug:
         description: 'Enable debug mode'
         required: false
         default: 'false'
 
+permissions:
+  contents: write
+
 env:
   ANDROID_API: "24"
   ANDROID_NDK_VERSION: "28.1.13356709"
-  ZIG_VERSION: "0.15.2"
-  V8_VERSION: "12.0.267"
+  ZIG_VERSION: "0.16.0"
+  JOBS: "4"
 
 jobs:
-  build-v8:
-    permissions:
-      contents: write
-    name: Build V8 for Android aarch64
-    runs-on: ubuntu-latest
-    timeout-minutes: 480
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install system packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            curl wget unzip xz-utils zip \
-            build-essential pkg-config \
-            cmake clang llvm-dev libclang-dev \
-            git python3 pkg-config
-
-      - name: Install Android NDK r28b
-        run: |
-          NDK_DIR="/opt/android-ndk"
-          if [ -d "$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64" ]; then
-            echo "NDK already installed at $NDK_DIR"
-          else
-            echo "Downloading Android NDK r28b..."
-            cd /tmp
-            wget -q "https://dl.google.com/android/repository/android-ndk-r28b-linux.zip" -O ndk.zip
-            sudo mkdir -p /opt
-            sudo unzip -q ndk.zip -d /opt/
-            sudo mv /opt/android-ndk-r28b "$NDK_DIR"
-            rm ndk.zip
-          fi
-          echo "ANDROID_NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
-          echo "$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
-
-      - name: Install depot_tools
-        run: |
-          if [ ! -d "/tmp/depot_tools" ]; then
-            git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git /tmp/depot_tools
-          fi
-          echo "/tmp/depot_tools" >> $GITHUB_PATH
-
-      - name: Cache V8 build
-        uses: actions/cache@v4
-        with:
-          path: |
-            /tmp/v8-build
-            ~/.config/gclient
-          key: ${{ runner.os }}-v8-${{ env.V8_VERSION }}-${{ hashFiles('scripts/build-v8-android.sh') }}
-
-      - name: Build V8
-        run: |
-          chmod +x scripts/build-v8-android.sh
-          ./scripts/build-v8-android.sh
-
-      - name: Upload V8 artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: v8-android-aarch64
-          path: /tmp/v8-build/output/
-
   build-obscura:
     permissions:
       contents: write
     name: Build Obscura for Android aarch64
     runs-on: ubuntu-latest
     timeout-minutes: 480
-    needs: [build-v8]
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install system packages
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            curl wget unzip xz-utils zip \
+            curl wget unzip xz-utils zip rsync \
             build-essential pkg-config \
             cmake clang llvm-dev libclang-dev \
-            git
+            git python3 ninja-build \
+            golang-go ruby perl \
+            libglib2.0-dev \
+            gcc-aarch64-linux-gnu \
+            libc6-dev-arm64-cross \
+            qemu-user-static
 
       - name: Install Android NDK r28b
         run: |
@@ -132,35 +64,31 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           source "$HOME/.cargo/env"
-          rustup target add aarch64-linux-android
+          rustup target add aarch64-linux-android aarch64-unknown-linux-gnu
           rustup component add llvm-tools-preview
 
-      - name: Download V8 artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: v8-android-aarch64
-          path: /tmp/v8-build/v8-output
-
       - name: Cache Rust dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+            ${{ github.workspace }}/cache
+          key: ${{ runner.os }}-obscura-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-obscura-cargo-
 
       - name: Build Obscura
         run: |
           source "$HOME/.cargo/env"
-          chmod +x scripts/build-obscura-android.sh
+          chmod +x scripts/*.sh
           ./scripts/build-obscura-android.sh
 
       - name: Upload Obscura artifact
         uses: actions/upload-artifact@v4
         with:
           name: obscura-android-aarch64
-          path: /tmp/obscura-build/obscura-aarch64-android.tar.xz
+          path: /tmp/android-build/dist/obscura-*
 
   build-lightpanda:
     permissions:
@@ -168,21 +96,25 @@ jobs:
     name: Build Lightpanda for Android aarch64
     runs-on: ubuntu-latest
     timeout-minutes: 480
-    needs: [build-v8]
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install system packages
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            curl wget unzip xz-utils zip \
+            curl wget unzip xz-utils zip rsync \
             build-essential pkg-config \
             cmake clang llvm-dev libclang-dev \
-            git xz-utils ca-certificates \
-            pkg-config libglib2.0-dev make
+            git ca-certificates \
+            pkg-config libglib2.0-dev make \
+            python3 ninja-build \
+            golang-go ruby perl \
+            gcc-aarch64-linux-gnu \
+            libc6-dev-arm64-cross \
+            qemu-user-static
 
       - name: Install Android NDK r28b
         run: |
@@ -206,6 +138,8 @@ jobs:
           echo "Installing Zig ${ZIG_VERSION}..."
           curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz" -o zig.tar.xz
           tar -xf zig.tar.xz
+          sudo mkdir -p /opt
+          sudo rm -rf /opt/zig
           sudo mv "zig-x86_64-linux-${ZIG_VERSION}" /opt/zig
           echo "/opt/zig" >> $GITHUB_PATH
           zig version
@@ -214,34 +148,31 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           source "$HOME/.cargo/env"
-
-      - name: Download V8 artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: v8-android-aarch64
-          path: /tmp/v8-build/v8-output
+          rustup target add aarch64-linux-android aarch64-unknown-linux-gnu
 
       - name: Cache build dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cache/zig
             ~/.cargo/registry
             ~/.cargo/git
-            zig-cache
+            ${{ github.workspace }}/cache
           key: ${{ runner.os }}-lightpanda-${{ hashFiles('**/build.zig.zon') }}
+          restore-keys: |
+            ${{ runner.os }}-lightpanda-
 
       - name: Build Lightpanda
         run: |
           source "$HOME/.cargo/env"
-          chmod +x scripts/build-lightpanda-android.sh
+          chmod +x scripts/*.sh
           ./scripts/build-lightpanda-android.sh
 
       - name: Upload Lightpanda artifact
         uses: actions/upload-artifact@v4
         with:
           name: lightpanda-android-aarch64
-          path: /tmp/lightpanda-build/lightpanda-aarch64-android.tar.xz
+          path: /tmp/android-build/dist/lightpanda*
 
   create-release:
     permissions:
@@ -253,7 +184,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -263,7 +194,7 @@ jobs:
       - name: List artifacts
         run: |
           echo "=== Downloaded artifacts ==="
-          find artifacts -type f -name "*.tar.gz" -o -name "*.tar.xz" | head -20
+          find artifacts -type f | head -30
           ls -lhR artifacts/
 
       - name: Create GitHub Release
@@ -274,40 +205,16 @@ jobs:
           files: |
             artifacts/**/*.tar.gz
             artifacts/**/*.tar.xz
+            artifacts/**/*
           body: |
             ## Android/Termux aarch64 Build
             
             This release contains Obscura and Lightpanda compiled for Android/Termux aarch64.
             
-            ### Installation (Termux)
-            
-            **Obscura:**
-            ```bash
-            curl -LO https://github.com/${{ github.repository }}/releases/latest/download/obscura-aarch64-android.tar.xz
-            tar xf obscura-aarch64-android.tar.xz
-            chmod +x obscura
-            mv obscura $PREFIX/bin/
-            ```
-            
-            **Lightpanda:**
-            ```bash
-            curl -LO https://github.com/${{ github.repository }}/releases/latest/download/lightpanda-aarch64-android.tar.xz
-            tar xf lightpanda-aarch64-android.tar.xz
-            chmod +x lightpanda
-            mv lightpanda $PREFIX/bin/
-            ```
-            
             ### Build Info
             - Android API level: ${{ env.ANDROID_API }}
             - NDK: r28b (${{ env.ANDROID_NDK_VERSION }})
             - Zig: ${{ env.ZIG_VERSION }}
-            - V8: ${{ env.V8_VERSION }}
             - Build date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
           draft: false
           prerelease: false
-
-      - name: Cleanup
-        if: always()
-        run: |
-          rm -rf artifacts
-          echo "Cleaned up artifacts"
