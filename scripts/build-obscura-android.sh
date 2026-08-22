@@ -148,6 +148,15 @@ PY2
 }
 [ -n "$v8_crate_dir" ] && repair_v8_crate
 
+# Ensure LIBCLANG_PATH is always set for bindgen (not just inside repair_v8_crate)
+export LIBCLANG_PATH="${LIBCLANG_PATH:-$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib}"
+if [ ! -f "$LIBCLANG_PATH/libclang.so" ]; then
+  # Fallback: search for libclang.so in NDK and system
+  LIBCLANG_PATH=$(find "$ANDROID_NDK_HOME" /usr/lib/llvm-* -name 'libclang.so*' 2>/dev/null | head -1 | xargs -r dirname)
+  export LIBCLANG_PATH
+fi
+log "LIBCLANG_PATH=$LIBCLANG_PATH"
+
 # Final link needs the NDK compiler-rt (__clear_cache); rustc's -nodefaultlibs
 # link omits it. Target-scoped rustflags affect only the final binary link.
 mkdir -p "$SRC/.cargo"

@@ -42,8 +42,10 @@ index 7ccff15..315c6d8 100644
      html5ever_step.dependOn(&exec_cargo.step);
  
 -    const obj = out_dir.path(b, if (is_debug) "debug" else "release").path(b, "liblitefetch_html5ever.a");
-+    const triple_dir = if (is_android) "aarch64-linux-android/" else "";
-+    const obj = out_dir.path(b, triple_dir ++ if (is_debug) "debug" else "release").path(b, "liblitefetch_html5ever.a");
++    const obj = if (is_android)
++        out_dir.path(b, "aarch64-linux-android").path(b, if (is_debug) "debug" else "release").path(b, "liblitefetch_html5ever.a")
++    else
++        out_dir.path(b, if (is_debug) "debug" else "release").path(b, "liblitefetch_html5ever.a");
      mod.addObjectFile(obj);
  }
  
