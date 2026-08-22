@@ -1,11 +1,11 @@
 diff --git a/build.zig b/build.zig
-index 7ccff15..315c6d8 100644
+index 7ccff15..a1b2c3d 100644
 --- a/build.zig
 +++ b/build.zig
 @@ -229,6 +229,13 @@ fn addExe(b: *Build, config: ExeConfig, name: []const u8, check_name: []const u8
          }),
      });
- 
+
 +    // Android requires position-independent executables; Zig 0.16 defaults to
 +    // static non-PIE for `aarch64-linux-android`, which bionic rejects.
 +    if (config.target.result.abi.isAndroid()) {
@@ -17,17 +17,17 @@ index 7ccff15..315c6d8 100644
          .name = check_name,
          .root_module = exe.root_module,
 @@ -325,6 +332,7 @@ fn linkV8(
- 
+
  fn linkHtml5Ever(b: *Build, mod: *Build.Module) void {
      const is_debug = mod.optimize.? == .Debug;
 +    const is_android = mod.resolved_target.?.result.abi.isAndroid();
- 
+
      const exec_cargo = b.addSystemCommand(&.{
          "cargo",           "build",
 @@ -333,6 +341,12 @@ fn linkHtml5Ever(b: *Build, mod: *Build.Module) void {
          "--manifest-path", "src/html5ever/Cargo.toml",
      });
- 
+
 +    // Cross-compiling for Android: cargo must target the android triple and
 +    // the linker is the NDK clang (set via CARGO_TARGET_* env in our scripts).
 +    if (is_android) {
@@ -37,10 +37,10 @@ index 7ccff15..315c6d8 100644
      // Track Rust sources so edits invalidate the cargo step's cache.
      // Without this, Zig keys the step on argv only and won't re-run cargo
      // when lib.rs/Cargo.toml change.
-@@ -353,7 +367,8 @@ fn linkHtml5Ever(b: *Build, mod: *Build.Module) void {
+@@ -353,7 +367,11 @@ fn linkHtml5Ever(b: *Build, mod: *Build.Module) void {
      const html5ever_step = b.step("html5ever", "Install html5ever dependency (requires cargo)");
      html5ever_step.dependOn(&exec_cargo.step);
- 
+
 -    const obj = out_dir.path(b, if (is_debug) "debug" else "release").path(b, "liblitefetch_html5ever.a");
 +    const obj = if (is_android)
 +        out_dir.path(b, "aarch64-linux-android").path(b, if (is_debug) "debug" else "release").path(b, "liblitefetch_html5ever.a")
@@ -48,4 +48,3 @@ index 7ccff15..315c6d8 100644
 +        out_dir.path(b, if (is_debug) "debug" else "release").path(b, "liblitefetch_html5ever.a");
      mod.addObjectFile(obj);
  }
- 
