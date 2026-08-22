@@ -13,7 +13,7 @@ permissions:
 
 env:
   ANDROID_API: "24"
-  ANDROID_NDK_VERSION: "28.1.13356709"
+  ANDROID_NDK_VERSION: "27.3.13750724"
   ZIG_VERSION: "0.16.0"
   JOBS: "4"
 
@@ -43,18 +43,18 @@ jobs:
             libc6-dev-arm64-cross \
             qemu-user-static
 
-      - name: Install Android NDK r28b
+      - name: Install Android NDK r27d
         run: |
           NDK_DIR="/opt/android-ndk"
           if [ -d "$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64" ]; then
             echo "NDK already installed at $NDK_DIR"
           else
-            echo "Downloading Android NDK r28b..."
+            echo "Downloading Android NDK r27d..."
             cd /tmp
-            wget -q "https://dl.google.com/android/repository/android-ndk-r28b-linux.zip" -O ndk.zip
+            wget -q "https://dl.google.com/android/repository/android-ndk-r27d-linux.zip" -O ndk.zip
             sudo mkdir -p /opt
             sudo unzip -q ndk.zip -d /opt/
-            sudo mv /opt/android-ndk-r28b "$NDK_DIR"
+            sudo mv /opt/android-ndk-r27d "$NDK_DIR"
             rm ndk.zip
           fi
           echo "ANDROID_NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
@@ -116,18 +116,18 @@ jobs:
             libc6-dev-arm64-cross \
             qemu-user-static
 
-      - name: Install Android NDK r28b
+      - name: Install Android NDK r27d
         run: |
           NDK_DIR="/opt/android-ndk"
           if [ -d "$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64" ]; then
             echo "NDK already installed at $NDK_DIR"
           else
-            echo "Downloading Android NDK r28b..."
+            echo "Downloading Android NDK r27d..."
             cd /tmp
-            wget -q "https://dl.google.com/android/repository/android-ndk-r28b-linux.zip" -O ndk.zip
+            wget -q "https://dl.google.com/android/repository/android-ndk-r27d-linux.zip" -O ndk.zip
             sudo mkdir -p /opt
             sudo unzip -q ndk.zip -d /opt/
-            sudo mv /opt/android-ndk-r28b "$NDK_DIR"
+            sudo mv /opt/android-ndk-r27d "$NDK_DIR"
             rm ndk.zip
           fi
           echo "ANDROID_NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
@@ -213,7 +213,7 @@ jobs:
             
             ### Build Info
             - Android API level: ${{ env.ANDROID_API }}
-            - NDK: r28b (${{ env.ANDROID_NDK_VERSION }})
+            - NDK: r27d (${{ env.ANDROID_NDK_VERSION }})
             - Zig: ${{ env.ZIG_VERSION }}
             - Build date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
           draft: false
