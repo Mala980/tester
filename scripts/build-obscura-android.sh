@@ -65,7 +65,23 @@ export OBSCURA_SNAPSHOT_FILE="$SNAPSHOT_FILE"
 # deno's v8 crate 137.3.0 supports `V8_FROM_SOURCE=1 cargo build --target
 # aarch64-linux-android`. It downloads an NDK itself unless we pre-seed
 # third_party/android_ndk; V8's sources are vendored inside the crate.
+
+# Ensure the v8 crate is downloaded before repair (cargo fetch from obscura manifest)
+log "Fetching v8 crate dependencies..."
+V8_FROM_SOURCE=1 cargo fetch --manifest-path "$SRC/Cargo.toml" 2>/dev/null || true
+
 v8_crate_dir=$(ls -d "$HOME/.cargo/registry/src/"*/v8-${OBSCURA_V8_CRATE_VERSION} 2>/dev/null | head -1)
+if [ -z "$v8_crate_dir" ]; then
+  # v8 crate might not be in registry yet; download it manually
+  log "v8 crate not in registry, downloading..."
+  cargo download v8==$OBSCURA_V8_CRATE_VERSION 2>/dev/null || \
+    (mkdir -p /tmp/v8-fetch && cd /tmp/v8-fetch && cargo init --name v8-fetch && \
+     echo '[dependencies]
+v8 = "=137.3.0"' > Cargo.toml && V8_FROM_SOURCE=1 cargo fetch 2>/dev/null)
+  v8_crate_dir=$(ls -d "$HOME/.cargo/registry/src/"*/v8-${OBSCURA_V8_CRATE_VERSION} 2>/dev/null | head -1)
+fi
+log "v8 crate dir: ${v8_crate_dir:-NOT FOUND}"
+
 if [ -n "$v8_crate_dir" ] && [ ! -e "$v8_crate_dir/third_party/android_ndk" ]; then
   ln -sfn "$ANDROID_NDK_HOME" "$v8_crate_dir/third_party/android_ndk"
 fi
@@ -83,16 +99,21 @@ repair_v8_crate() {
   local d="$b/android/pylib/results/presentation"
   mkdir -p "$d/javascript" "$d/template"
   for f in __init__.py standard_gtest_merge.py test_results_presentation.py test_results_presentation.pydeps; do
-    curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/android/pylib/results/presentation/$f?format=TEXT" | base64 -d > "$d/$f"
+    curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/android/pylib/results/presentation/$f?format=TEXT" | base64 -d > "$d/$f" 2>/dev/null || true
   done
   for sub in javascript template; do
-    for f in $(curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/android/pylib/results/presentation/$sub/?format=JSON" 2>/dev/null | tail -n +2 | python3 -c "import json,sys; print(' '.join(e['name'] for e in json.load(sys.stdin)['entries']))"); do
-      curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/android/pylib/results/presentation/$sub/$f?format=TEXT" | base64 -d > "$d/$sub/$f"
+    for f in $(curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/android/pylib/results/presentation/$sub/?format=JSON" 2>/dev/null | tail -n +2 | python3 -c "import json,sys; print(' '.join(e['name'] for e in json.load(sys.stdin)['entries']))" 2>/dev/null); do
+      curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/android/pylib/results/presentation/$sub/$f?format=TEXT" | base64 -d > "$d/$sub/$f" 2>/dev/null || true
     done
   done
-  for f in protoc_java android/apk_operations android/devil_chromium android/resource_sizes android/test_runner android/test_wrapper/logdog_wrapper; do
-    [ -f "$b/$f.pydeps" ] || curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/${f}.pydeps?format=TEXT" | base64 -d > "$b/$f.pydeps" || true
+  # All pydeps files referenced by build/android/BUILD.gn and v8/tools/BUILD.gn
+  for f in protoc_java android/apk_operations android/devil_chromium android/resource_sizes android/test_runner android/test_wrapper/logdog_wrapper android/test_wrapper/setup; do
+    mkdir -p "$(dirname "$b/$f.pydeps")"
+    [ -f "$b/$f.pydeps" ] || curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/${f}.pydeps?format=TEXT" | base64 -d > "$b/$f.pydeps" 2>/dev/null || true
   done
+  # Also ensure gyp files exist
+  mkdir -p "$b/android/test_wrapper"
+  [ -f "$b/android/test_wrapper/paths.py" ] || curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/android/test_wrapper/paths.py?format=TEXT" | base64 -d > "$b/android/test_wrapper/paths.py" 2>/dev/null || true
   # bindgen needs the NDK sysroot + target for android (registry patch)
   local br="$v8_crate_dir/build.rs"
   if ! grep -q 'isystem{sysroot}/usr/include/c++/v1' "$br"; then
@@ -127,11 +148,6 @@ PY2
 }
 [ -n "$v8_crate_dir" ] && repair_v8_crate
 
-log "Building obscura (render) for $RUST_TARGET — V8 from source, this is the long step..."
-V8_FROM_SOURCE=1 NUM_JOBS="$JOBS" CARGO_BUILD_JOBS="$JOBS" \
-  CARGO_TARGET_DIR="$CARGO_TARGET_DIR" \
-  cargo build --release --target "$RUST_TARGET" \
-  --manifest-path "$SRC/Cargo.toml" -p obscura-cli --bins --features render
 # Final link needs the NDK compiler-rt (__clear_cache); rustc's -nodefaultlibs
 # link omits it. Target-scoped rustflags affect only the final binary link.
 mkdir -p "$SRC/.cargo"
@@ -139,6 +155,12 @@ cat >> "$SRC/.cargo/config.toml" <<EOF
 [target.aarch64-linux-android]
 rustflags = ["-C", "link-arg=$OBSCURA_RT"]
 EOF
+
+log "Building obscura (render) for $RUST_TARGET — V8 from source, this is the long step..."
+V8_FROM_SOURCE=1 NUM_JOBS="$JOBS" CARGO_BUILD_JOBS="$JOBS" \
+  CARGO_TARGET_DIR="$CARGO_TARGET_DIR" \
+  cargo build --release --target "$RUST_TARGET" \
+  --manifest-path "$SRC/Cargo.toml" -p obscura-cli --bins --features render
 
 
 # Cache the v8 static lib for subsequent runs
