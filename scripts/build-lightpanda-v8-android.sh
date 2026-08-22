@@ -28,6 +28,7 @@ if ! grep -q 'target_os="android"' "$V8_DIR/build.zig"; then
 fi
 
 log "Preparing V8 sources (gclient sync + clang)..."
+cd "$V8_DIR"
 zig build -Dtarget=aarch64-linux-android -Doptimize=ReleaseFast prepare-v8 \
   --cache-dir "$CACHE_DIR/zig-cache" --global-cache-dir "$CACHE_DIR/zig-global"
 
@@ -59,6 +60,7 @@ mkdir -p "$NDK_TARGET"
 ln -sfn "$ANDROID_NDK_HOME" "$NDK_TARGET/ndk"
 
 log "Building V8 for android (ReleaseFast, JOBS=$JOBS)..."
+cd "$V8_DIR"
 zig build -Dtarget=aarch64-linux-android -Doptimize=ReleaseFast build-v8 \
   --cache-dir "$CACHE_DIR/zig-cache" --global-cache-dir "$CACHE_DIR/zig-global" 2>&1 \
   | tee "$CACHE_DIR/build-v8.log"

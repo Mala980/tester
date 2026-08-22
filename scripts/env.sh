@@ -8,7 +8,7 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 export ZIG_VERSION="${ZIG_VERSION:-0.16.0}"
 export ANDROID_API="${ANDROID_API:-24}"
-export ANDROID_NDK_VERSION="${ANDROID_NDK_VERSION:-28.1.13356709}"
+export ANDROID_NDK_VERSION="${ANDROID_NDK_VERSION:-27.3.13750724}"
 export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-/opt/android-ndk}"
 export ZIG_HOME="${ZIG_HOME:-/opt/zig}"
 
@@ -71,9 +71,12 @@ EOF
 # Ensure the NDK is present, at $ANDROID_NDK_HOME (symlink is fine).
 ensure_ndk() {
   if [ ! -d "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64" ]; then
-    local real="/opt/android-ndk-r${ANDROID_NDK_VERSION%%.*}"
-    if [ ! -d "$real" ]; then
-      die "NDK not found at $ANDROID_NDK_HOME or $real — run scripts/setup-toolchain.sh first"
+    local real
+    for d in "/opt/android-ndk-r${ANDROID_NDK_VERSION%%.*}" "/opt/android-ndk-r${ANDROID_NDK_VERSION%.*}" "/opt/android-ndk" "/usr/local/lib/android/sdk/ndk/$ANDROID_NDK_VERSION"; do
+      if [ -d "$d/toolchains/llvm/prebuilt/linux-x86_64" ]; then real="$d"; break; fi
+    done
+    if [ -z "${real:-}" ]; then
+      die "NDK not found at $ANDROID_NDK_HOME — run scripts/setup-toolchain.sh first"
     fi
     ln -sfn "$real" "$ANDROID_NDK_HOME"
   fi

@@ -26,10 +26,10 @@ log "Zig: $(zig version)"
 
 # --- Android NDK r28b ------------------------------------------------------
 if [ ! -d "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64" ]; then
-  log "Downloading Android NDK r28b..."
-  curl -fsSL "https://dl.google.com/android/repository/android-ndk-r28b-linux.zip" -o /tmp/ndk.zip
+  log "Downloading Android NDK r27d..."
+  curl -fsSL "https://dl.google.com/android/repository/android-ndk-r27d-linux.zip" -o /tmp/ndk.zip
   sudo unzip -q /tmp/ndk.zip -d /opt/
-  sudo mv "/opt/android-ndk-r28b" "$ANDROID_NDK_HOME"
+  sudo mv "/opt/android-ndk-r27d" "$ANDROID_NDK_HOME"
   rm -f /tmp/ndk.zip
 fi
 export ANDROID_NDK_ROOT="$ANDROID_NDK_HOME"

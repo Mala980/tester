@@ -22,8 +22,12 @@ export CC_aarch64_linux_android="$NDK_BIN/aarch64-linux-android${OBSCURA_API}-cl
 export AR_aarch64_linux_android="$NDK_BIN/llvm-ar"
 # __clear_cache comes from the NDK compiler-rt; rustc's -nodefaultlibs link
 # doesn't pull it, so inject the archive at the final link.
-export OBSCURA_RT="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/19/lib/linux/libclang_rt.builtins-aarch64-android.a"
-export LIBCLANG_PATH="${LIBCLANG_PATH:-$(dirname "$(find /usr/lib/llvm-*/lib -name 'libclang.so*' 2>/dev/null | head -1)")}"
+CLANG_VER=$(ls "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/" | sort -n | tail -1)
+export OBSCURA_RT="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/$CLANG_VER/lib/linux/libclang_rt.builtins-aarch64-android.a"
+if [ ! -f "$OBSCURA_RT" ]; then
+  OBSCURA_RT=$(find "$ANDROID_NDK_HOME" -name 'libclang_rt.builtins-aarch64-android.a' 2>/dev/null | head -1)
+fi
+export LIBCLANG_PATH="${LIBCLANG_PATH:-$(find /usr/lib/llvm-* /usr/lib/llvm-*/lib "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib" -maxdepth 2 -name 'libclang.so*' 2>/dev/null | head -1 | xargs -r dirname)}"
 
 SRC="$SRC_DIR/obscura"
 if [ ! -d "$SRC/.git" ]; then
@@ -86,7 +90,7 @@ repair_v8_crate() {
       curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/android/pylib/results/presentation/$sub/$f?format=TEXT" | base64 -d > "$d/$sub/$f"
     done
   done
-  for f in protoc_java android/apk_operations android/devil_chromium android/resource_sizes android/test_runner; do
+  for f in protoc_java android/apk_operations android/devil_chromium android/resource_sizes android/test_runner android/test_wrapper/logdog_wrapper; do
     [ -f "$b/$f.pydeps" ] || curl -fsSL "https://chromium.googlesource.com/chromium/src/build/+/main/${f}.pydeps?format=TEXT" | base64 -d > "$b/$f.pydeps" || true
   done
   # bindgen needs the NDK sysroot + target for android (registry patch)

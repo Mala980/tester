@@ -17,8 +17,9 @@ mkdir -p "$SNAPSHOT_DIR"
 
 QEMU="${QEMU:-qemu-aarch64-static}"
 QEMU_SYSROOT="${QEMU_SYSROOT:-/usr/aarch64-linux-gnu}"
-QEMU_CMD="$QEMU -L $QEMU_SYSROOT"
-command -v "$QEMU" >/dev/null 2>&1 || QEMU_CMD="/usr/bin/qemu-aarch64-static -L $QEMU_SYSROOT"
+QEMU_CPU="${QEMU_CPU:-cortex-a72}"
+QEMU_CMD="$QEMU -L $QEMU_SYSROOT -cpu $QEMU_CPU"
+command -v "$QEMU" >/dev/null 2>&1 || QEMU_CMD="/usr/bin/qemu-aarch64-static -L $QEMU_SYSROOT -cpu $QEMU_CPU"
 
 # ---------------------------------------------------------------------------
 # Obscura snapshot
