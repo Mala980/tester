@@ -24,9 +24,6 @@ export ZIG_V8_FORK_COMMIT="${ZIG_V8_FORK_COMMIT:-57747955a59f09147b4dc1142152f0d
 # The v8 crate used by obscura (deno_core 0.350.0)
 export OBSCURA_V8_CRATE_VERSION="${OBSCURA_V8_CRATE_VERSION:-137.3.0}"
 
-# depot_tools for V8 builds
-export DEPOT_TOOLS_DIR="${DEPOT_TOOLS_DIR:-$CACHE_DIR/depot_tools}"
-
 # Upstreams
 export LIGHTPANDA_REPO="${LIGHTPANDA_REPO:-https://github.com/lightpanda-io/browser.git}"
 export OBSCURA_REPO="${OBSCURA_REPO:-https://github.com/h4ckf0r0day/obscura.git}"
@@ -39,6 +36,9 @@ export WORK_DIR="${WORK_DIR:-/tmp/android-build}"
 export SRC_DIR="$WORK_DIR/src"
 export DIST_DIR="$WORK_DIR/dist"
 export CACHE_DIR="$WORK_DIR/cache"
+
+# depot_tools for V8 builds
+export DEPOT_TOOLS_DIR="${DEPOT_TOOLS_DIR:-$CACHE_DIR/depot_tools}"
 
 export NDK_BIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
 export NDK_SYSROOT="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr"
