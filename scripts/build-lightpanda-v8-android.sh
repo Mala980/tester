@@ -36,15 +36,6 @@ zig build -Dtarget=aarch64-linux-android -Doptimize=ReleaseFast prepare-v8 \
 # (cpu_features, catapult, colorama, android_platform, ...) are fetched at
 # their pinned commits. V8's DEPS gates these on `checkout_android`.
 V8_SRC="$V8_DIR/.lp-cache/v8-${LIGHTPANDA_V8_VERSION}"
-
-# Ensure depot_tools is available in PATH for gclient
-DEPOT_TOOLS_DIR=$(find "$V8_DIR/.lp-cache" -maxdepth 1 -name 'depot_tools-*' -type d 2>/dev/null | head -1)
-if [ -n "$DEPOT_TOOLS_DIR" ]; then
-  export PATH="$DEPOT_TOOLS_DIR:$PATH"
-else
-  log "Warning: depot_tools not found in .lp-cache, gclient may fail"
-fi
-
 cat > "$V8_SRC/.gclient" <<EOF
 solutions = [
   {
@@ -59,7 +50,7 @@ solutions = [
   },
 ]
 EOF
-(cd "$V8_SRC" && PATH="$DEPOT_TOOLS_DIR:$PATH" gclient sync --nohooks) \
+(cd "$V8_SRC" && PATH="$V8_DIR/.lp-cache/depot_tools-${LIGHTPANDA_V8_VERSION}:$PATH" gclient sync --nohooks) \
   | tail -5
 
 # Point Chromium's build config at our NDK: V8's DEPS does not fetch the

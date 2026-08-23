@@ -21,11 +21,15 @@ export CC_aarch64_linux_android="$NDK_BIN/aarch64-linux-android${OBSCURA_API}-cl
 export AR_aarch64_linux_android="$NDK_BIN/llvm-ar"
 # __clear_cache comes from the NDK compiler-rt; rustc's -nodefaultlibs link
 # doesn't pull it, so inject the archive at the final link.
-CLANG_VER=$(ls "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/" | sort -n | tail -1)
+CLANG_VER=$(ls "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/" 2>/dev/null | sort -n | tail -1)
 export OBSCURA_RT="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/$CLANG_VER/lib/linux/libclang_rt.builtins-aarch64-android.a"
 if [ ! -f "$OBSCURA_RT" ]; then
   OBSCURA_RT=$(find "$ANDROID_NDK_HOME" -name 'libclang_rt.builtins-aarch64-android.a' 2>/dev/null | head -1)
 fi
+if [ -z "$OBSCURA_RT" ] || [ ! -f "$OBSCURA_RT" ]; then
+  die "libclang_rt.builtins-aarch64-android.a not found in NDK"
+fi
+log "OBSCURA_RT=$OBSCURA_RT"
 export LIBCLANG_PATH="${LIBCLANG_PATH:-$(find /usr/lib/llvm-* /usr/lib/llvm-*/lib "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib" -maxdepth 2 -name 'libclang.so*' 2>/dev/null | head -1 | xargs -r dirname)}"
 
 SRC="$SRC_DIR/obscura"
@@ -160,10 +164,11 @@ log "LIBCLANG_PATH=$LIBCLANG_PATH"
 # Final link needs the NDK compiler-rt (__clear_cache); rustc's -nodefaultlibs
 # link omits it. Target-scoped rustflags affect only the final binary link.
 mkdir -p "$SRC/.cargo"
-cat >> "$SRC/.cargo/config.toml" <<EOF
+cat > "$SRC/.cargo/config.toml" <<EOF
 [target.aarch64-linux-android]
 rustflags = ["-C", "link-arg=$OBSCURA_RT"]
 EOF
+log "cargo config written: $SRC/.cargo/config.toml"
 
 log "Building obscura (render) for $RUST_TARGET — V8 from source, this is the long step..."
 V8_FROM_SOURCE=1 NUM_JOBS="$JOBS" CARGO_BUILD_JOBS="$JOBS" \
