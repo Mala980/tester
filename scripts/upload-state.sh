@@ -9,7 +9,7 @@ source "$SCRIPT_DIR/env.sh"
 
 REPO="${REPO:-Mala980/tester}"
 TAG="${TAG:-android-continuation}"
-STATE_DIR="${1:-/tmp/opencode/zig-v8-fork/.lp-cache/v8-14.9.207.35}"
+STATE_DIR="${1:-$CACHE_DIR/zig-v8-fork/.lp-cache/v8-${LIGHTPANDA_V8_VERSION}}"
 OUT_DIR="${2:-$WORK_DIR/state}"
 mkdir -p "$OUT_DIR"
 

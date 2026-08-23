@@ -13,10 +13,9 @@ export OBSCURA_API="${OBSCURA_API:-26}"
 export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$NDK_BIN/aarch64-linux-android${OBSCURA_API}-clang"
 export CARGO_TARGET_AARCH64_LINUX_ANDROID_AR="$NDK_BIN/llvm-ar"
 export ANDROID_NDK_ROOT="$ANDROID_NDK_HOME"
-export ANDROID_NDK_HOME="$ANDROID_NDK_HOME"
 # cc-rs (ring) needs the unversioned tool names on PATH
-sudo ln -sf "aarch64-linux-android${OBSCURA_API}-clang" "$NDK_BIN/aarch64-linux-android-clang"
-sudo ln -sf "aarch64-linux-android${OBSCURA_API}-clang++" "$NDK_BIN/aarch64-linux-android-clang++"
+ln -sf "aarch64-linux-android${OBSCURA_API}-clang" "$NDK_BIN/aarch64-linux-android-clang"
+ln -sf "aarch64-linux-android${OBSCURA_API}-clang++" "$NDK_BIN/aarch64-linux-android-clang++"
 export PATH="$NDK_BIN:$PATH"
 export CC_aarch64_linux_android="$NDK_BIN/aarch64-linux-android${OBSCURA_API}-clang"
 export AR_aarch64_linux_android="$NDK_BIN/llvm-ar"
@@ -82,8 +81,9 @@ v8 = "=137.3.0"' > Cargo.toml && V8_FROM_SOURCE=1 cargo fetch 2>/dev/null)
 fi
 log "v8 crate dir: ${v8_crate_dir:-NOT FOUND}"
 
-if [ -n "$v8_crate_dir" ] && [ ! -e "$v8_crate_dir/third_party/android_ndk" ]; then
-  ln -sfn "$ANDROID_NDK_HOME" "$v8_crate_dir/third_party/android_ndk"
+if [ -n "$v8_crate_dir" ] && [ ! -e "$v8_crate_dir/third_party/android_toolchain/ndk" ]; then
+  mkdir -p "$v8_crate_dir/third_party/android_toolchain"
+  ln -sfn "$ANDROID_NDK_HOME" "$v8_crate_dir/third_party/android_toolchain/ndk"
 fi
 
 # Pre-built librusty_v8.a cache: skip the full V8 re-compile if cached
@@ -184,7 +184,7 @@ stage_bins() {
   cp "$CARGO_TARGET_DIR/$RUST_TARGET/release/obscura-worker" "$out/obscura-worker"
   elf_fix "$out/obscura" "$out/obscura-worker"
   # bionic needs libc++_shared.so for the v8 crate's c++_shared link; bundle it
-  cp "$NDK_SYSROOT/usr/lib/aarch64-linux-android/libc++_shared.so" "$out/" 2>/dev/null || true
+  cp "$NDK_SYSROOT/lib/aarch64-linux-android/libc++_shared.so" "$out/" 2>/dev/null || true
   log "staged: $out"
 }
 

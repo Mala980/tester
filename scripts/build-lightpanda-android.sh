@@ -23,12 +23,12 @@ log "Lightpanda @ $LIGHTPANDA_COMMIT"
 # Apply the android build.zig patch (idempotent)
 if ! grep -q 'exe.linkage = .dynamic' "$SRC/build.zig"; then
   log "Patching build.zig for Android..."
+  git -C "$SRC" apply "$SCRIPT_DIR/../patches/lightpanda/build.zig-android.patch" 2>/dev/null || \
   python3 - "$SRC/build.zig" <<'PYEOF'
 import sys
 p = sys.argv[1]
 s = open(p).read()
 
-# 1. Add PIE + dynamic linkage for Android in addExe()
 old1 = "    const exe_check = b.addLibrary(.{"
 new1 = """    // Android requires position-independent executables; Zig 0.16 defaults to
     // static non-PIE for `aarch64-linux-android`, which bionic rejects.
@@ -41,13 +41,11 @@ new1 = """    // Android requires position-independent executables; Zig 0.16 def
 assert old1 in s, "addExe patch point not found"
 s = s.replace(old1, new1, 1)
 
-# 2. Add is_android flag in linkHtml5Ever()
 old2 = "    const is_debug = mod.optimize.? == .Debug;\n\n    const exec_cargo"
 new2 = "    const is_debug = mod.optimize.? == .Debug;\n    const is_android = mod.resolved_target.?.result.abi.isAndroid();\n\n    const exec_cargo"
 assert old2 in s, "is_android patch point not found"
 s = s.replace(old2, new2, 1)
 
-# 3. Add --target arg for android cargo build
 old3 = '        "--manifest-path", "src/html5ever/Cargo.toml",\n    });\n\n    // Track Rust sources'
 new3 = '''        "--manifest-path", "src/html5ever/Cargo.toml",
     });
@@ -62,7 +60,6 @@ new3 = '''        "--manifest-path", "src/html5ever/Cargo.toml",
 assert old3 in s, "cargo target patch point not found"
 s = s.replace(old3, new3, 1)
 
-# 4. Fix the object path for android triple
 old4 = '    const obj = out_dir.path(b, if (is_debug) "debug" else "release").path(b, "liblitefetch_html5ever.a");'
 new4 = """    const obj = if (is_android)
         out_dir.path(b, "aarch64-linux-android").path(b, if (is_debug) "debug" else "release").path(b, "liblitefetch_html5ever.a")
@@ -92,7 +89,8 @@ cp "$V8_ARCHIVE" "$PREBUILT_DIR/libc_v8_${LIGHTPANDA_V8_VERSION}_android_aarch64
 SNAP_OPT=""
 if [ ! -s "$CACHE_DIR/lightpanda-snapshot.bin" ]; then
   log "No lightpanda snapshot — generating it with qemu-user..."
-  "$SCRIPT_DIR/make-snapshots-qemu.sh" "$SRC_DIR/obscura" 1 "$SRC" || true
+  # Only build the lightpanda snapshot (skip obscura=0)
+  "$SCRIPT_DIR/make-snapshots-qemu.sh" "" 0 "$SRC" || true
 fi
 if [ -s "$CACHE_DIR/lightpanda-snapshot.bin" ]; then
   cp "$CACHE_DIR/lightpanda-snapshot.bin" "$SRC/snapshot.bin"

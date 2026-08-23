@@ -54,7 +54,46 @@ if [ "${BUILD_LIGHTPANDA:-1}" = "1" ]; then
   fi
   git -C "$SRC" checkout -q main 2>/dev/null || true
   if ! grep -q 'exe.linkage = .dynamic' "$SRC/build.zig"; then
-    git -C "$SRC" apply "$SCRIPT_DIR/../patches/lightpanda/build.zig-android.patch"
+    log "Patching build.zig for Android..."
+    git -C "$SRC" apply "$SCRIPT_DIR/../patches/lightpanda/build.zig-android.patch" 2>/dev/null || \
+    python3 - "$SRC/build.zig" <<'PYEOF'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+old1 = "    const exe_check = b.addLibrary(.{"
+new1 = """    if (config.target.result.abi.isAndroid()) {
+        exe.pie = true;
+        exe.linkage = .dynamic;
+    }
+
+    const exe_check = b.addLibrary(.{"""
+assert old1 in s, "addExe patch point not found"
+s = s.replace(old1, new1, 1)
+old2 = "    const is_debug = mod.optimize.? == .Debug;\n\n    const exec_cargo"
+new2 = "    const is_debug = mod.optimize.? == .Debug;\n    const is_android = mod.resolved_target.?.result.abi.isAndroid();\n\n    const exec_cargo"
+assert old2 in s, "is_android patch point not found"
+s = s.replace(old2, new2, 1)
+old3 = '        "--manifest-path", "src/html5ever/Cargo.toml",\n    });\n\n    // Track Rust sources'
+new3 = '''        "--manifest-path", "src/html5ever/Cargo.toml",
+    });
+
+    if (is_android) {
+        exec_cargo.addArgs(&.{ "--target", "aarch64-linux-android" });
+    }
+
+    // Track Rust sources'''
+assert old3 in s, "cargo target patch point not found"
+s = s.replace(old3, new3, 1)
+old4 = '    const obj = out_dir.path(b, if (is_debug) "debug" else "release").path(b, "liblitefetch_html5ever.a");'
+new4 = """    const obj = if (is_android)
+        out_dir.path(b, "aarch64-linux-android").path(b, if (is_debug) "debug" else "release").path(b, "liblitefetch_html5ever.a")
+    else
+        out_dir.path(b, if (is_debug) "debug" else "release").path(b, "liblitefetch_html5ever.a");"""
+assert old4 in s, "obj path patch point not found"
+s = s.replace(old4, new4, 1)
+open(p, "w").write(s)
+print("build.zig patched for Android")
+PYEOF
   fi
 
   log "Downloading prebuilt V8 (linux aarch64) and building snapshot_creator..."

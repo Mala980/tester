@@ -5,30 +5,7 @@ set -euo pipefail
 # Reference: https://v8.dev/docs/cross-compile-arm
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORK_DIR="${WORK_DIR:-/tmp/v8-build}"
-ANDROID_API="${ANDROID_API:-24}"
-ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-/opt/android-ndk}"
-V8_VERSION="${V8_VERSION:-12.0.267}"
-DEPOT_TOOLS_DIR="${DEPOT_TOOLS_DIR:-/tmp/depot_tools}"
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-log() {
-    echo -e "${GREEN}[V8 BUILD]${NC} $1"
-}
-
-warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
-
-error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-    exit 1
-}
+source "$SCRIPT_DIR/env.sh"
 
 # Create work directory
 mkdir -p "$WORK_DIR"
@@ -47,7 +24,7 @@ if [ ! -d "v8" ]; then
     log "Fetching V8 source..."
     fetch v8
     cd v8
-    git checkout "tags/${V8_VERSION}" -b build || git checkout "main"
+    git checkout "tags/${LIGHTPANDA_V8_VERSION}" -b build || git checkout "main"
 else
     cd v8
     git pull
@@ -141,5 +118,5 @@ if [ -f "$BUILD_DIR/obj/libv8_monolith.a" ]; then
     log "V8 library created: $WORK_DIR/output/libv8_monolith.a"
     ls -lh "$WORK_DIR/output/libv8_monolith.a"
 else
-    error "V8 build failed - libv8_monolith.a not found"
+    die "V8 build failed - libv8_monolith.a not found"
 fi

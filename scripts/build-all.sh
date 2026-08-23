@@ -5,35 +5,7 @@ set -euo pipefail
 # Reference: https://github.com/Haris131/opencode-termux
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORK_DIR="${WORK_DIR:-/tmp/android-build}"
-ANDROID_API="${ANDROID_API:-24}"
-ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-/opt/android-ndk}"
-ZIG_VERSION="${ZIG_VERSION:-0.15.2}"
-V8_VERSION="${V8_VERSION:-12.0.267}"
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-log() {
-    echo -e "${GREEN}[BUILD]${NC} $1"
-}
-
-warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
-
-error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-    exit 1
-}
-
-info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
+source "$SCRIPT_DIR/env.sh"
 
 # Parse command line arguments
 BUILD_V8=false
@@ -69,16 +41,16 @@ while [[ $# -gt 0 ]]; do
             echo "  --all          Build V8 and both projects"
             echo "  --help         Show this help message"
             echo ""
-            echo "Environment variables:"
-            echo "  WORK_DIR       Working directory (default: /tmp/android-build)"
-            echo "  ANDROID_API    Android API level (default: 24)"
-            echo "  ANDROID_NDK_HOME  Android NDK path (default: /opt/android-ndk)"
-            echo "  ZIG_VERSION    Zig version (default: 0.15.2)"
-            echo "  V8_VERSION     V8 version (default: 12.0.267)"
+            echo "Environment variables (defaults from env.sh):"
+            echo "  WORK_DIR       Working directory (default: $WORK_DIR)"
+            echo "  ANDROID_API    Android API level (default: $ANDROID_API)"
+            echo "  ANDROID_NDK_HOME  Android NDK path (default: $ANDROID_NDK_HOME)"
+            echo "  ZIG_VERSION    Zig version (default: $ZIG_VERSION)"
+            echo "  LIGHTPANDA_V8_VERSION  V8 version for lightpanda (default: $LIGHTPANDA_V8_VERSION)"
             exit 0
             ;;
         *)
-            error "Unknown option: $1"
+            die "Unknown option: $1"
             ;;
     esac
 done
@@ -88,10 +60,8 @@ if [ "$BUILD_V8" = false ] && [ "$BUILD_OBSCURA" = false ] && [ "$BUILD_LIGHTPAN
     BUILD_ALL=true
 fi
 
-# Check if Android NDK is installed
-if [ ! -d "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64" ]; then
-    error "Android NDK not found at $ANDROID_NDK_HOME. Please install it first."
-fi
+# Ensure Android NDK is available
+ensure_ndk
 
 # Create work directory
 mkdir -p "$WORK_DIR"
@@ -123,8 +93,8 @@ fi
 
 # List built artifacts
 log "Build completed! Artifacts:"
-find "$WORK_DIR" -name "*.tar.gz" -o -name "*.tar.xz" | while read -r file; do
-    info "  $file ($(du -h "$file" | cut -f1))"
+for d in "$DIST_DIR"/*; do
+  [ -d "$d" ] && echo "  $d" && file "$d"/* 2>/dev/null | head -3
 done
 
 log "Done!"

@@ -18,7 +18,7 @@ ensure_zig
 ensure_ndk
 
 V8_DIR="$CACHE_DIR/zig-v8-fork"
-V8_SRC="$V8_DIR/.lp-cache/v8-14.9.207.35"
+V8_SRC="$V8_DIR/.lp-cache/v8-${LIGHTPANDA_V8_VERSION}"
 mkdir -p "$V8_DIR/.lp-cache"
 
 # Prepare the V8 source tree (re-clones ~15-25 min) with the android patches
@@ -62,7 +62,7 @@ zig build -Dtarget=aarch64-linux-android -Doptimize=ReleaseFast build-v8 \
 
 ARCHIVE=$(find "$V8_SRC/out" -name 'libc_v8.a' | head -1)
 [ -n "$ARCHIVE" ] || die "libc_v8.a not found after resume"
-cp "$ARCHIVE" "$CACHE_DIR/libc_v8_14.9.207.35_android_aarch64.a"
+cp "$ARCHIVE" "$CACHE_DIR/libc_v8_${LIGHTPANDA_V8_VERSION}_android_aarch64.a"
 
 log "Building lightpanda..."
 ./scripts/build-lightpanda-android.sh
