@@ -37,9 +37,6 @@ export SRC_DIR="$WORK_DIR/src"
 export DIST_DIR="$WORK_DIR/dist"
 export CACHE_DIR="$WORK_DIR/cache"
 
-# depot_tools for V8 builds
-export DEPOT_TOOLS_DIR="${DEPOT_TOOLS_DIR:-$CACHE_DIR/depot_tools}"
-
 export NDK_BIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
 export NDK_SYSROOT="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr"
 export ANDROID_LIBC_FILE="$WORK_DIR/libc-android.txt"

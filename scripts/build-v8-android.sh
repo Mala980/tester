@@ -7,6 +7,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/env.sh"
 
+DEPOT_TOOLS_DIR="${DEPOT_TOOLS_DIR:-$CACHE_DIR/depot_tools}"
+
 # Create work directory
 mkdir -p "$WORK_DIR"
 cd "$WORK_DIR"
