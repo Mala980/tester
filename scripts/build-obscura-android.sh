@@ -163,12 +163,15 @@ log "LIBCLANG_PATH=$LIBCLANG_PATH"
 
 # Final link needs the NDK compiler-rt (__clear_cache); rustc's -nodefaultlibs
 # link omits it. Target-scoped rustflags affect only the final binary link.
+# Use both .cargo/config.toml AND RUSTFLAGS env var as belt-and-suspenders.
 mkdir -p "$SRC/.cargo"
 cat > "$SRC/.cargo/config.toml" <<EOF
 [target.aarch64-linux-android]
 rustflags = ["-C", "link-arg=$OBSCURA_RT"]
 EOF
 log "cargo config written: $SRC/.cargo/config.toml"
+
+export RUSTFLAGS="-C link-arg=$OBSCURA_RT ${RUSTFLAGS:-}"
 
 log "Building obscura (render) for $RUST_TARGET — V8 from source, this is the long step..."
 V8_FROM_SOURCE=1 NUM_JOBS="$JOBS" CARGO_BUILD_JOBS="$JOBS" \
