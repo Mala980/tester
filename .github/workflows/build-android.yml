@@ -121,9 +121,9 @@ jobs:
           # zig-v8-fork hardcodes clang_base_path="/usr/lib/llvm-23" for V8 host build.
           # CI has clang-18; create symlinks so V8 finds the compiler-rt libs.
           CLANG_SRC="/usr/lib/llvm-18"
-          sudo mkdir -p /usr/lib/llvm-23/lib
+          sudo mkdir -p /usr/lib/llvm-23/lib/clang
           sudo ln -sfn "$CLANG_SRC/lib/clang/18" /usr/lib/llvm-23/lib/clang/23
-          echo "Symlink created:" && ls -la /usr/lib/llvm-23/lib/clang/23/lib/ | head -5
+          echo "Symlink created:" && ls -la /usr/lib/llvm-23/lib/clang/
 
       - name: Install Android NDK r27d
         run: |
