@@ -47,8 +47,8 @@ jobs:
         run: |
           wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 23
           CLANG_DIR=/usr/lib/llvm-23/lib/clang/23
-          sudo ln -nsf "$CLANG_DIR/lib/linux/libclang_rt.builtins-aarch64.a" "$CLANG_DIR/lib/linux/libclang_rt.builtins.a"
-          sudo ln -nsf "$CLANG_DIR/lib/linux" "$CLANG_DIR/lib/aarch64-unknown-linux-gnu"
+          sudo ln -nsf "$CLANG_DIR/lib/linux/libclang_rt.builtins-x86_64.a" "$CLANG_DIR/lib/linux/libclang_rt.builtins.a"
+          sudo ln -nsf "$CLANG_DIR/lib/linux" "$CLANG_DIR/lib/x86_64-unknown-linux-gnu"
 
       - name: Install Android NDK r27d
         run: |
@@ -129,9 +129,12 @@ jobs:
           # Install LLVM 23 from apt.llvm.org (same as zig-v8-fork CI).
           wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 23
           CLANG_DIR=/usr/lib/llvm-23/lib/clang/23
-          sudo ln -nsf "$CLANG_DIR/lib/linux/libclang_rt.builtins-aarch64.a" "$CLANG_DIR/lib/linux/libclang_rt.builtins.a"
-          sudo ln -nsf "$CLANG_DIR/lib/linux" "$CLANG_DIR/lib/aarch64-unknown-linux-gnu"
-          echo "LLVM 23 installed:" && ls /usr/lib/llvm-23/lib/clang/23/lib/
+          # V8 host build (x86_64) needs libclang_rt.builtins for x86_64
+          sudo ln -nsf "$CLANG_DIR/lib/linux/libclang_rt.builtins-x86_64.a" "$CLANG_DIR/lib/linux/libclang_rt.builtins.a"
+          sudo ln -nsf "$CLANG_DIR/lib/linux" "$CLANG_DIR/lib/x86_64-unknown-linux-gnu"
+          # Also create aarch64 symlinks for target build
+          sudo ln -nsf "$CLANG_DIR/lib/linux/libclang_rt.builtins-aarch64.a" "$CLANG_DIR/lib/linux/libclang_rt.builtins-aarch64-link.a" 2>/dev/null || true
+          echo "LLVM 23 installed:" && ls "$CLANG_DIR/lib/linux/"
 
       - name: Install Android NDK r27d
         run: |
