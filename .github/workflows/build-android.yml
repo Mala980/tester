@@ -43,6 +43,13 @@ jobs:
             libc6-dev-arm64-cross \
             qemu-user-static
 
+      - name: Install LLVM 23 for V8 host build
+        run: |
+          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 23
+          CLANG_DIR=/usr/lib/llvm-23/lib/clang/23
+          sudo ln -nsf "$CLANG_DIR/lib/linux/libclang_rt.builtins-aarch64.a" "$CLANG_DIR/lib/linux/libclang_rt.builtins.a"
+          sudo ln -nsf "$CLANG_DIR/lib/linux" "$CLANG_DIR/lib/aarch64-unknown-linux-gnu"
+
       - name: Install Android NDK r27d
         run: |
           NDK_DIR="/opt/android-ndk"
@@ -116,14 +123,15 @@ jobs:
             libc6-dev-arm64-cross \
             qemu-user-static
 
-      - name: Create clang-23 compatibility symlinks
+      - name: Install LLVM 23 for V8 host build
         run: |
-          # zig-v8-fork hardcodes clang_base_path="/usr/lib/llvm-23" for V8 host build.
-          # CI has clang-18; create symlinks so V8 finds the compiler-rt libs.
-          CLANG_SRC="/usr/lib/llvm-18"
-          sudo mkdir -p /usr/lib/llvm-23/lib/clang
-          sudo ln -sfn "$CLANG_SRC/lib/clang/18" /usr/lib/llvm-23/lib/clang/23
-          echo "Symlink created:" && ls -la /usr/lib/llvm-23/lib/clang/
+          # zig-v8-fork hardcodes clang_base_path="/usr/lib/llvm-23" for V8.
+          # Install LLVM 23 from apt.llvm.org (same as zig-v8-fork CI).
+          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 23
+          CLANG_DIR=/usr/lib/llvm-23/lib/clang/23
+          sudo ln -nsf "$CLANG_DIR/lib/linux/libclang_rt.builtins-aarch64.a" "$CLANG_DIR/lib/linux/libclang_rt.builtins.a"
+          sudo ln -nsf "$CLANG_DIR/lib/linux" "$CLANG_DIR/lib/aarch64-unknown-linux-gnu"
+          echo "LLVM 23 installed:" && ls /usr/lib/llvm-23/lib/clang/23/lib/
 
       - name: Install Android NDK r27d
         run: |
