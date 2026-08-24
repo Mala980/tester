@@ -211,7 +211,7 @@ if [ "${BUILD_NO_RENDER:-1}" = "1" ]; then
   stage_bins "no-render"
 fi
 
-if [ "${BUILD_STEALTH:-1}" = "1" ]; then
+if [ "${BUILD_STEALTH:-0}" = "1" ]; then
   log "Building obscura (render+stealth — BoringSSL via btls-sys)..."
   V8_FROM_SOURCE=1 NUM_JOBS="$JOBS" CARGO_BUILD_JOBS="$JOBS" \
     OBSCURA_SNAPSHOT_FILE="$SNAPSHOT_FILE" \
