@@ -18,6 +18,7 @@ sudo ln -sf "aarch64-linux-android${OBSCURA_API}-clang" "$NDK_BIN/aarch64-linux-
 sudo ln -sf "aarch64-linux-android${OBSCURA_API}-clang++" "$NDK_BIN/aarch64-linux-android-clang++"
 export PATH="$NDK_BIN:$PATH"
 export CC_aarch64_linux_android="$NDK_BIN/aarch64-linux-android${OBSCURA_API}-clang"
+export CXX_aarch64_linux_android="$NDK_BIN/aarch64-linux-android${OBSCURA_API}-clang++"
 export AR_aarch64_linux_android="$NDK_BIN/llvm-ar"
 # __clear_cache comes from the NDK compiler-rt; rustc's -nodefaultlibs link
 # doesn't pull it, so inject the archive at the final link.
@@ -209,9 +210,19 @@ if [ "${BUILD_NO_RENDER:-1}" = "1" ]; then
     cargo build --release --target "$RUST_TARGET" \
     --manifest-path "$SRC/Cargo.toml" -p obscura-cli --bins --no-default-features
   stage_bins "no-render"
+
+  if [ "${BUILD_STEALTH:-1}" = "1" ]; then
+    log "Building obscura (no-render-stealth)..."
+    V8_FROM_SOURCE=1 NUM_JOBS="$JOBS" CARGO_BUILD_JOBS="$JOBS" \
+      OBSCURA_SNAPSHOT_FILE="$SNAPSHOT_FILE" \
+      CARGO_TARGET_DIR="$CARGO_TARGET_DIR" \
+      cargo build --release --target "$RUST_TARGET" \
+      --manifest-path "$SRC/Cargo.toml" -p obscura-cli --bins --no-default-features --features stealth
+    stage_bins "no-render-stealth"
+  fi
 fi
 
-if [ "${BUILD_STEALTH:-0}" = "1" ]; then
+if [ "${BUILD_STEALTH:-1}" = "1" ]; then
   log "Building obscura (render+stealth — BoringSSL via btls-sys)..."
   V8_FROM_SOURCE=1 NUM_JOBS="$JOBS" CARGO_BUILD_JOBS="$JOBS" \
     OBSCURA_SNAPSHOT_FILE="$SNAPSHOT_FILE" \
