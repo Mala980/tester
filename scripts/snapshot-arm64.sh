@@ -69,26 +69,26 @@ new1 = """    if (config.target.result.abi.isAndroid()) {
     const exe_check = b.addLibrary(.{"""
 assert old1 in s, "addExe patch point not found"
 s = s.replace(old1, new1, 1)
-old2 = "    const is_debug = mod.optimize.? == .Debug;\n\n    const exec_cargo"
-new2 = "    const is_debug = mod.optimize.? == .Debug;\n    const is_android = mod.resolved_target.?.result.abi.isAndroid();\n\n    const exec_cargo"
+old2 = "    const is_debug = mod.optimize.? == .Debug;\n\n    // One cargo workspace"
+new2 = "    const is_debug = mod.optimize.? == .Debug;\n    const is_android = mod.resolved_target.?.result.abi.isAndroid();\n\n    // One cargo workspace"
 assert old2 in s, "is_android patch point not found"
 s = s.replace(old2, new2, 1)
-old3 = '        "--manifest-path", "src/html5ever/Cargo.toml",\n    });\n\n    // Track Rust sources'
-new3 = '''        "--manifest-path", "src/html5ever/Cargo.toml",
+old3 = '        "--manifest-path", "src/rust/ffi/Cargo.toml",\n    });\n\n    addDirInputs'
+new3 = '''        "--manifest-path", "src/rust/ffi/Cargo.toml",
     });
 
     if (is_android) {
         exec_cargo.addArgs(&.{ "--target", "aarch64-linux-android" });
     }
 
-    // Track Rust sources'''
+    addDirInputs'''
 assert old3 in s, "cargo target patch point not found"
 s = s.replace(old3, new3, 1)
-old4 = '    const obj = out_dir.path(b, if (is_debug) "debug" else "release").path(b, "liblitefetch_html5ever.a");'
+old4 = '    const obj = out_dir.path(b, if (is_debug) "debug" else "release").path(b, "liblightpanda_ffi.a");'
 new4 = """    const obj = if (is_android)
-        out_dir.path(b, "aarch64-linux-android").path(b, if (is_debug) "debug" else "release").path(b, "liblitefetch_html5ever.a")
+        out_dir.path(b, "aarch64-linux-android").path(b, if (is_debug) "debug" else "release").path(b, "liblightpanda_ffi.a")
     else
-        out_dir.path(b, if (is_debug) "debug" else "release").path(b, "liblitefetch_html5ever.a");"""
+        out_dir.path(b, if (is_debug) "debug" else "release").path(b, "liblightpanda_ffi.a");"""
 assert old4 in s, "obj path patch point not found"
 s = s.replace(old4, new4, 1)
 open(p, "w").write(s)
