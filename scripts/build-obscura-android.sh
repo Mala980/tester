@@ -165,15 +165,16 @@ log "LIBCLANG_PATH=$LIBCLANG_PATH"
 # Final link needs the NDK compiler-rt (__clear_cache); rustc's -nodefaultlibs
 # link omits it. Write config.toml to both workspace AND $CARGO_HOME so cargo
 # definitely picks it up.
+# Also static-link libc++ so the binary doesn't need libc++_shared.so bundled.
 mkdir -p "$SRC/.cargo"
 cat > "$SRC/.cargo/config.toml" <<EOF
 [target.aarch64-linux-android]
-rustflags = ["-C", "link-arg=$OBSCURA_RT"]
+rustflags = ["-C", "link-arg=$OBSCURA_RT", "-C", "link-arg=-static-libstdc++"]
 EOF
 mkdir -p "$HOME/.cargo"
 cat > "$HOME/.cargo/config.toml" <<EOF
 [target.aarch64-linux-android]
-rustflags = ["-C", "link-arg=$OBSCURA_RT"]
+rustflags = ["-C", "link-arg=$OBSCURA_RT", "-C", "link-arg=-static-libstdc++"]
 EOF
 log "cargo config written: $SRC/.cargo/config.toml + $HOME/.cargo/config.toml"
 
