@@ -105,7 +105,7 @@ zig build -Dtarget=aarch64-linux-android -Doptimize=ReleaseFast $SNAP_OPT \
   --libc "$ANDROID_LIBC_FILE" \
   --cache-dir "$SRC/.zig-cache" \
   --global-cache-dir "$CACHE_DIR/zig-global" \
-  --prefix "$DIST_DIR/lightpanda-${LIGHTPANDA_COMMIT}" 2>&1 | tail -40
+  --prefix "$DIST_DIR/lightpanda-${LIGHTPANDA_COMMIT}" 2>&1 | tee "$CACHE_DIR/build-lightpanda.log" | tail -50
 
 BIN="$DIST_DIR/lightpanda-${LIGHTPANDA_COMMIT}/bin/lightpanda"
 [ -f "$BIN" ] || die "lightpanda binary not produced"
