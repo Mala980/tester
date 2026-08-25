@@ -14,10 +14,9 @@ if [ -f "$LIGHTPANDA_BIN" ]; then
   log "lightpanda-aarch64-android.tar.xz ($(du -h "$PKG_DIR/lightpanda-aarch64-android.tar.xz" | cut -f1))"
 fi
 
-for variant in default no-render stealth; do
+for variant in default no-render stealth no-render-stealth; do
   d="$OUT_DIR/obscura-$variant"
   if [ -f "$d/obscura" ]; then
-    tar -cJf "$PKG_DIR/obscura-aarch64-android${variant#default}.tar.xz" -C "$d" obscura obscura-worker libc++_shared.so 2>/dev/null || \
     tar -cJf "$PKG_DIR/obscura-aarch64-android${variant#default}.tar.xz" -C "$d" obscura obscura-worker
     log "obscura-aarch64-android${variant#default}.tar.xz ($(du -h "$PKG_DIR/obscura-aarch64-android${variant#default}.tar.xz" | cut -f1))"
   fi

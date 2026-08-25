@@ -101,6 +101,24 @@ if [ -s "$CACHE_DIR/lightpanda-snapshot.bin" ]; then
   log "Embedding lightpanda snapshot"
 fi
 
+# --- Diagnostic: translate each C header individually -----------------------
+# zig build swallows translate-c error details; running `zig translate-c`
+# directly on each header surfaces the real errors early in the log.
+log "Diagnostic: translating C headers for aarch64-linux-android..."
+for hdr in \
+  "$SRC"/zig-pkg/*/include/curl/curl.h \
+  "$SRC"/zig-pkg/*/include/isocline.h; do
+  [ -f "$hdr" ] || continue
+  if zig translate-c "$hdr" -target aarch64-linux-android \
+      --libc "$ANDROID_LIBC_FILE" -lc > /dev/null 2>"$hdr.err"; then
+    log "translate-c OK: $hdr"
+    rm -f "$hdr.err"
+  else
+    log "translate-c FAILED: $hdr"
+    cat "$hdr.err" || true
+  fi
+done
+
 log "zig build lightpanda (android, ReleaseFast)..."
 cd "$SRC"
 ZIG_LOCAL_CACHE_DIR="$CACHE_DIR/lightpanda-zig-cache" \

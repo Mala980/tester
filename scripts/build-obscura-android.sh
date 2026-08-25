@@ -101,6 +101,14 @@ CARGO_TARGET_DIR="$CACHE_DIR/obscura-target"
 # and target (host libclang + glibc headers cannot parse NDK libc++).
 repair_v8_crate() {
   local b="$v8_crate_dir/build"
+  # Link against the system libc++.so instead of libc++_shared.so so the
+  # binary has NO bundled .so dependency (default/no-render variants already
+  # work this way). System /system/lib64/libc++.so uses the __ndk1 namespace,
+  # same as the NDK runtime, so symbols resolve on any Android 8+ device.
+  if grep -q 'c++_shared' "$v8_crate_dir/build.rs" 2>/dev/null; then
+    sed -i 's/c++_shared/c++/g' "$v8_crate_dir/build.rs"
+    log "patched v8 crate: c++_shared -> c++ (system libc++)"
+  fi
   local d="$b/android/pylib/results/presentation"
   mkdir -p "$d/javascript" "$d/template"
   for f in __init__.py standard_gtest_merge.py test_results_presentation.py test_results_presentation.pydeps; do
@@ -165,16 +173,15 @@ log "LIBCLANG_PATH=$LIBCLANG_PATH"
 # Final link needs the NDK compiler-rt (__clear_cache); rustc's -nodefaultlibs
 # link omits it. Write config.toml to both workspace AND $CARGO_HOME so cargo
 # definitely picks it up.
-# Also static-link libc++ so the binary doesn't need libc++_shared.so bundled.
 mkdir -p "$SRC/.cargo"
 cat > "$SRC/.cargo/config.toml" <<EOF
 [target.aarch64-linux-android]
-rustflags = ["-C", "link-arg=$OBSCURA_RT", "-C", "link-arg=-static-libstdc++"]
+rustflags = ["-C", "link-arg=$OBSCURA_RT"]
 EOF
 mkdir -p "$HOME/.cargo"
 cat > "$HOME/.cargo/config.toml" <<EOF
 [target.aarch64-linux-android]
-rustflags = ["-C", "link-arg=$OBSCURA_RT", "-C", "link-arg=-static-libstdc++"]
+rustflags = ["-C", "link-arg=$OBSCURA_RT"]
 EOF
 log "cargo config written: $SRC/.cargo/config.toml + $HOME/.cargo/config.toml"
 
@@ -196,15 +203,7 @@ stage_bins() {
   cp "$CARGO_TARGET_DIR/$RUST_TARGET/release/obscura" "$out/obscura"
   cp "$CARGO_TARGET_DIR/$RUST_TARGET/release/obscura-worker" "$out/obscura-worker"
   elf_fix "$out/obscura" "$out/obscura-worker"
-  # bionic needs libc++_shared.so for the v8 crate's c++_shared link; bundle it
-  cp "$NDK_SYSROOT/lib/aarch64-linux-android/libc++_shared.so" "$out/" 2>/dev/null || true
-  # Set RPATH to $ORIGIN so binary finds libc++_shared.so in the same directory
-  if [ -f "$out/libc++_shared.so" ] && command -v patchelf >/dev/null 2>&1; then
-    patchelf --set-rpath '$ORIGIN' "$out/obscura" 2>/dev/null || true
-    patchelf --set-rpath '$ORIGIN' "$out/obscura-worker" 2>/dev/null || true
-    log "RPATH set to \$ORIGIN for $name"
-  fi
-  log "staged: $out"
+  log "staged: $out (no bundled .so — links system libc++.so)"
 }
 
 stage_bins "default"   # render
