@@ -197,6 +197,12 @@ stage_bins() {
   elf_fix "$out/obscura" "$out/obscura-worker"
   # bionic needs libc++_shared.so for the v8 crate's c++_shared link; bundle it
   cp "$NDK_SYSROOT/lib/aarch64-linux-android/libc++_shared.so" "$out/" 2>/dev/null || true
+  # Set RPATH to $ORIGIN so binary finds libc++_shared.so in the same directory
+  if [ -f "$out/libc++_shared.so" ] && command -v patchelf >/dev/null 2>&1; then
+    patchelf --set-rpath '$ORIGIN' "$out/obscura" 2>/dev/null || true
+    patchelf --set-rpath '$ORIGIN' "$out/obscura-worker" 2>/dev/null || true
+    log "RPATH set to \$ORIGIN for $name"
+  fi
   log "staged: $out"
 }
 
