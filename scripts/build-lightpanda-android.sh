@@ -101,32 +101,44 @@ if [ -s "$CACHE_DIR/lightpanda-snapshot.bin" ]; then
   log "Embedding lightpanda snapshot"
 fi
 
-# --- Diagnostic: translate each C header individually -----------------------
-# zig build swallows translate-c error details; running `zig translate-c`
-# directly on each header surfaces the real errors early in the log.
-log "Diagnostic: translating C headers for aarch64-linux-android..."
-for hdr in \
-  "$SRC"/zig-pkg/*/include/curl/curl.h \
-  "$SRC"/zig-pkg/*/include/isocline.h; do
-  [ -f "$hdr" ] || continue
-  if zig translate-c "$hdr" -target aarch64-linux-android \
-      --libc "$ANDROID_LIBC_FILE" -lc > /dev/null 2>"$hdr.err"; then
-    log "translate-c OK: $hdr"
-    rm -f "$hdr.err"
-  else
-    log "translate-c FAILED: $hdr"
-    cat "$hdr.err" || true
-  fi
-done
+# --- Diagnostic helper -------------------------------------------------------
+# zig build swallows translate-c error details; translating each C header
+# directly surfaces the real errors.
+translate_diag() {
+  local found=0
+  while IFS= read -r hdr; do
+    [ -f "$hdr" ] || continue
+    found=1
+    log "translate-c: $hdr"
+    if zig translate-c "$hdr" -target aarch64-linux-android \
+        --libc "$ANDROID_LIBC_FILE" -lc > /dev/null 2>"$hdr.diagerr"; then
+      log "translate-c OK"
+    else
+      log "translate-c FAILED:"
+      cat "$hdr.diagerr" || true
+    fi
+    rm -f "$hdr.diagerr"
+  done < <(find "$CACHE_DIR/zig-global/p" "$SRC/.zig-cache" \
+             \( -name 'curl.h' -o -name 'isocline.h' -o -name 'sqlite3.h' \) 2>/dev/null)
+  [ "$found" = "1" ] || log "no C headers found to diagnose"
+}
 
 log "zig build lightpanda (android, ReleaseFast)..."
 cd "$SRC"
+set +e
 ZIG_LOCAL_CACHE_DIR="$CACHE_DIR/lightpanda-zig-cache" \
 zig build -Dtarget=aarch64-linux-android -Doptimize=ReleaseFast $SNAP_OPT \
   --libc "$ANDROID_LIBC_FILE" \
   --cache-dir "$SRC/.zig-cache" \
   --global-cache-dir "$CACHE_DIR/zig-global" \
   --prefix "$DIST_DIR/lightpanda-${LIGHTPANDA_COMMIT}" 2>&1 | tee "$CACHE_DIR/build-lightpanda.log" | tail -50
+ZIG_RC=${PIPESTATUS[0]}
+set -e
+if [ "$ZIG_RC" != "0" ]; then
+  log "zig build FAILED (rc=$ZIG_RC) — running translate-c diagnostics..."
+  translate_diag
+  die "lightpanda build failed (see diagnostics above)"
+fi
 
 BIN="$DIST_DIR/lightpanda-${LIGHTPANDA_COMMIT}/bin/lightpanda"
 [ -f "$BIN" ] || die "lightpanda binary not produced"
