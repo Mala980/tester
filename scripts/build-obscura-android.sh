@@ -199,10 +199,11 @@ rm -f "$CARGO_TARGET_DIR/$RUST_TARGET/release/obscura" \
       "$CARGO_TARGET_DIR/$RUST_TARGET/release/obscura-worker"
 
 # Name-and-shame any build script that still emits c++_shared link flags.
+# (grep exits 1 when nothing matches; neutralise it under pipefail.)
 grep -rln 'rustc-link-lib=c\+\+_shared\|rustc-link-lib=dylib=c++_shared' \
   "$CARGO_TARGET_DIR/$RUST_TARGET/release/build/"*/output 2>/dev/null | while read -r f; do
   log "WARNING: $(basename "$(dirname "$f")") emits c++_shared link flag"
-done
+done || true
 
 log "Building obscura (render) for $RUST_TARGET — V8 from source, this is the long step..."
 V8_FROM_SOURCE=1 NUM_JOBS="$JOBS" CARGO_BUILD_JOBS="$JOBS" \
