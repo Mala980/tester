@@ -101,6 +101,26 @@ if [ -s "$CACHE_DIR/lightpanda-snapshot.bin" ]; then
   log "Embedding lightpanda snapshot"
 fi
 
+# --- Fix NDK headers incompatible with zig translate-c -----------------------
+# NDK r27 bionic headers use _Nonnull/_Nullable nullability specifiers on
+# array parameters (Clang extension). zig translate-c does not understand
+# these, producing "nullability specifier cannot be applied to non-pointer
+# type" errors. Patch the affected headers before zig build.
+apply_header_fixes() {
+  local inc="$NDK_SYSROOT/include"
+  log "patching NDK bionic headers for zig translate-c compatibility..."
+  for hdr in sys/socket.h sys/time.h sys/select.h sys/unistd.h; do
+    local src="$inc/$hdr"
+    [ -f "$src" ] || continue
+    if ! grep -q 'NDK_ZIG_PATCHED' "$src" 2>/dev/null; then
+      sudo sed -i.bak 's/\[_Nonnull[[:space:]]*[0-9]*\]/[2]/g; s/\[_Nullable[[:space:]]*[0-9]*\]/[2]/g; s/\*\(_Nonnull\|_Nullable\)//g; /__socketcall/s/__socketcall//' "$src"
+      sudo sed -i '1i\/* NDK_ZIG_PATCHED */' "$src"
+      log "patched $inc/$hdr for zig translate-c"
+    fi
+  done
+}
+apply_header_fixes
+
 # --- Diagnostic helper -------------------------------------------------------
 # zig build swallows translate-c error details; translating each C header
 # directly surfaces the real errors.
