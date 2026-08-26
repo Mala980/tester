@@ -20,6 +20,10 @@ export PATH="$NDK_BIN:$PATH"
 export CC_aarch64_linux_android="$NDK_BIN/aarch64-linux-android${OBSCURA_API}-clang"
 export CXX_aarch64_linux_android="$NDK_BIN/aarch64-linux-android${OBSCURA_API}-clang++"
 export AR_aarch64_linux_android="$NDK_BIN/llvm-ar"
+# v8 crate build.rs honours CXXSTDLIB to pick the C++ runtime. Default on
+# android is libc++_shared.so (bundled .so); point it at the SYSTEM libc++.so
+# (/system/lib64/libc++.so) so binaries need no bundled library at all.
+export CXXSTDLIB="c++"
 # __clear_cache comes from the NDK compiler-rt; rustc's -nodefaultlibs link
 # doesn't pull it, so inject the archive at the final link.
 CLANG_VER=$(ls "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/" 2>/dev/null | sort -n | tail -1)
