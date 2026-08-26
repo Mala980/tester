@@ -24,6 +24,9 @@ export AR_aarch64_linux_android="$NDK_BIN/llvm-ar"
 # android is libc++_shared.so (bundled .so); point it at the SYSTEM libc++.so
 # (/system/lib64/libc++.so) so binaries need no bundled library at all.
 export CXXSTDLIB="c++"
+# btls-sys (BoringSSL) honours BORING_BSSL_RUST_CPPLIB for the C++ runtime;
+# default android path may resolve to c++_shared elsewhere in the chain.
+export BORING_BSSL_RUST_CPPLIB="c++"
 # __clear_cache comes from the NDK compiler-rt; rustc's -nodefaultlibs link
 # doesn't pull it, so inject the archive at the final link.
 CLANG_VER=$(ls "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/" 2>/dev/null | sort -n | tail -1)
@@ -189,6 +192,18 @@ rustflags = ["-C", "link-arg=$OBSCURA_RT"]
 EOF
 log "cargo config written: $SRC/.cargo/config.toml + $HOME/.cargo/config.toml"
 
+# Force a fresh final link: cargo does NOT fingerprint env vars like
+# CXXSTDLIB/BORING_BSSL_RUST_CPPLIB, so with a cached target dir the old
+# binary (possibly linked against libc++_shared.so) would be reused as-is.
+rm -f "$CARGO_TARGET_DIR/$RUST_TARGET/release/obscura" \
+      "$CARGO_TARGET_DIR/$RUST_TARGET/release/obscura-worker"
+
+# Name-and-shame any build script that still emits c++_shared link flags.
+grep -rln 'rustc-link-lib=c\+\+_shared\|rustc-link-lib=dylib=c++_shared' \
+  "$CARGO_TARGET_DIR/$RUST_TARGET/release/build/"*/output 2>/dev/null | while read -r f; do
+  log "WARNING: $(basename "$(dirname "$f")") emits c++_shared link flag"
+done
+
 log "Building obscura (render) for $RUST_TARGET — V8 from source, this is the long step..."
 V8_FROM_SOURCE=1 NUM_JOBS="$JOBS" CARGO_BUILD_JOBS="$JOBS" \
   CARGO_TARGET_DIR="$CARGO_TARGET_DIR" \
@@ -207,6 +222,10 @@ stage_bins() {
   cp "$CARGO_TARGET_DIR/$RUST_TARGET/release/obscura" "$out/obscura"
   cp "$CARGO_TARGET_DIR/$RUST_TARGET/release/obscura-worker" "$out/obscura-worker"
   elf_fix "$out/obscura" "$out/obscura-worker"
+  # Hard gate: no binary may depend on a bundled libc++_shared.so.
+  if readelf -d "$out/obscura" | grep -q 'libc++_shared'; then
+    die "$name: obscura still NEEDs libc++_shared.so — see WARNING lines above"
+  fi
   log "staged: $out (no bundled .so — links system libc++.so)"
 }
 
