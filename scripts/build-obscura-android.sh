@@ -20,13 +20,14 @@ export PATH="$NDK_BIN:$PATH"
 export CC_aarch64_linux_android="$NDK_BIN/aarch64-linux-android${OBSCURA_API}-clang"
 export CXX_aarch64_linux_android="$NDK_BIN/aarch64-linux-android${OBSCURA_API}-clang++"
 export AR_aarch64_linux_android="$NDK_BIN/llvm-ar"
-# v8 crate build.rs honours CXXSTDLIB to pick the C++ runtime. Default on
-# android is libc++_shared.so (bundled .so); point it at the SYSTEM libc++.so
-# (/system/lib64/libc++.so) so binaries need no bundled library at all.
-export CXXSTDLIB="c++"
-# btls-sys (BoringSSL) honours BORING_BSSL_RUST_CPPLIB for the C++ runtime;
-# default android path may resolve to c++_shared elsewhere in the chain.
-export BORING_BSSL_RUST_CPPLIB="c++"
+# v8 crate build.rs honours CXXSTDLIB and btls-sys honours
+# BORING_BSSL_RUST_CPPLIB to pick the C++ runtime. Static-link libc++
+# (libc++_static.a from the NDK, includes libc++abi) so binaries carry ALL
+# C++ symbols internally — including __ndk1 internals that the SYSTEM
+# /system/lib64/libc++.so does NOT export (e.g. std::__ndk1::__sort).
+# Result: zero bundled .so files, runs anywhere without LD_PRELOAD.
+export CXXSTDLIB="c++_static"
+export BORING_BSSL_RUST_CPPLIB="c++_static"
 # __clear_cache comes from the NDK compiler-rt; rustc's -nodefaultlibs link
 # doesn't pull it, so inject the archive at the final link.
 CLANG_VER=$(ls "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/" 2>/dev/null | sort -n | tail -1)
@@ -228,7 +229,7 @@ stage_bins() {
   if readelf -d "$out/obscura" | grep -q 'libc++_shared'; then
     log "$name: replacing NEEDED libc++_shared.so -> libc++.so"
     for b in obscura obscura-worker; do
-      patchelf --replace-needed libc++_shared.so libc++ "$out/$b"
+      patchelf --replace-needed libc++_shared.so libc++.so "$out/$b"
     done
   fi
   # Hard gate: no binary may depend on a bundled libc++_shared.so.
