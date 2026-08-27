@@ -269,6 +269,15 @@ if [ "${BUILD_STEALTH:-1}" = "1" ]; then
     cargo build --release --target "$RUST_TARGET" \
     --manifest-path "$SRC/Cargo.toml" -p obscura-cli --bins --features render,stealth
   stage_bins "stealth"
+
+  log "Building obscura (full release — render+stealth+websocket+canvas2d)..."
+  V8_FROM_SOURCE=1 NUM_JOBS="$JOBS" CARGO_BUILD_JOBS="$JOBS" \
+    OBSCURA_SNAPSHOT_FILE="$SNAPSHOT_FILE" \
+    CARGO_TARGET_DIR="$CARGO_TARGET_DIR" \
+    cargo build --release --target "$RUST_TARGET" \
+    --manifest-path "$SRC/Cargo.toml" -p obscura-cli --bins \
+    --features render,stealth,websocket,canvas2d
+  stage_bins "full"
 fi
 
 echo "$OBSCURA_COMMIT" > "$DIST_DIR/obscura-commit.txt"
