@@ -113,7 +113,8 @@ apply_header_fixes() {
     local src="$inc/$hdr"
     [ -f "$src" ] || continue
     if ! grep -q 'NDK_ZIG_PATCHED' "$src" 2>/dev/null; then
-      sudo sed -i.bak 's/\[_Nonnull[[:space:]]*[0-9]*\]/[2]/g; s/\[_Nullable[[:space:]]*[0-9]*\]/[2]/g; s/\*\(_Nonnull\|_Nullable\)//g; /__socketcall/s/__socketcall//' "$src"
+      sudo sed -i.bak \
+        's/\[_Nonnull[[:space:]]*[0-9]*\]/[2]/g; s/\[_Nullable[[:space:]]*[0-9]*\]/[2]/g; s/\*\(_Nonnull\|_Nullable\)//g' "$src"
       sudo sed -i '1i\/* NDK_ZIG_PATCHED */' "$src"
       log "patched $inc/$hdr for zig translate-c"
     fi
