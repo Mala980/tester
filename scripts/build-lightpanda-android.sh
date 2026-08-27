@@ -165,14 +165,13 @@ if ! grep -q 'libc_file.*b\.libc_file' "$SRC/build.zig" 2>/dev/null; then
   log "Applying translate-c libc_file patch..."
   git -C "$SRC" apply "$SCRIPT_DIR/../patches/lightpanda/translate-c-libc.patch" 2>/dev/null || \
   python3 - "$SRC/build.zig" <<'PYEOF'
-import sys, re
+import sys
 p = sys.argv[1]
 s = open(p).read()
-# Add .libc_file = b.libc_file to each addTranslateC call
-old = "        .optimize = mod.optimize.?,\n    });\n    mod.addImport(\""
-new_tc = "        .optimize = mod.optimize.?,\n        .libc_file = b.libc_file,\n    });\n    mod.addImport(\""
-# Count replacements
-s2 = s.replace(old, new_tc)
+# Add .libc_file = b.libc_file after every .optimize = mod.optimize.? in addTranslateC blocks
+old = ".optimize = mod.optimize.?,\n    });"
+new = ".optimize = mod.optimize.?,\n        .libc_file = b.libc_file,\n    });"
+s2 = s.replace(old, new)
 if s2 != s:
     open(p, "w").write(s2)
     print("patched translate-c steps: added libc_file")
