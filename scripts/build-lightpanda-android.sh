@@ -127,6 +127,7 @@ apply_header_fixes
 # directly surfaces the real errors.
 translate_diag() {
   local found=0
+  # Search broadly: zig-global cache, .zig-cache, and zig-pkg
   while IFS= read -r hdr; do
     [ -f "$hdr" ] || continue
     found=1
@@ -139,8 +140,29 @@ translate_diag() {
       cat "$hdr.diagerr" || true
     fi
     rm -f "$hdr.diagerr"
-  done < <(find "$CACHE_DIR/zig-global/p" "$SRC/.zig-cache" \
-             \( -name 'curl.h' -o -name 'isocline.h' -o -name 'sqlite3.h' \) 2>/dev/null)
+  done < <(find "$CACHE_DIR/zig-global" "$SRC/.zig-cache" "$SRC/zig-pkg" \
+             -name 'isocline.h' -o -name 'curl.h' -o -name 'sqlite3.h' 2>/dev/null)
+  # Also check the zig global p/ directory (known hash for isocline)
+  for dir in "$CACHE_DIR"/zig-global/p/*/include; do
+    [ -d "$dir" ] || continue
+    for hdr in isocline.h curl.h sqlite3.h; do
+      [ -f "$dir/$hdr" ] || continue
+      # Skip if already diagnosed
+      grep -qF "$dir/$hdr" /tmp/lp-diag-done 2>/dev/null && continue
+      echo "$dir/$hdr" >> /tmp/lp-diag-done
+      found=1
+      log "translate-c (cache): $dir/$hdr"
+      if zig translate-c "$dir/$hdr" -target aarch64-linux-android \
+          --libc "$ANDROID_LIBC_FILE" -lc > /dev/null 2>"$hdr.diagerr"; then
+        log "translate-c OK"
+      else
+        log "translate-c FAILED:"
+        cat "$hdr.diagerr" || true
+      fi
+      rm -f "$hdr.diagerr"
+    done
+  done
+  rm -f /tmp/lp-diag-done
   [ "$found" = "1" ] || log "no C headers found to diagnose"
 }
 
@@ -156,7 +178,16 @@ zig build -Dtarget=aarch64-linux-android -Doptimize=ReleaseFast $SNAP_OPT \
 ZIG_RC=${PIPESTATUS[0]}
 set -e
 if [ "$ZIG_RC" != "0" ]; then
-  log "zig build FAILED (rc=$ZIG_RC) — running translate-c diagnostics..."
+  log "zig build FAILED (rc=$ZIG_RC) — analyzing errors..."
+  sync
+  # Extract error details from the full log (translate-c errors are captured
+  # by tee before pipe truncation)
+  if [ -f "$CACHE_DIR/build-lightpanda.log" ]; then
+    log "=== Full translate-c error details from build log ==="
+    grep -A2 "error:" "$CACHE_DIR/build-lightpanda.log" | head -40 || true
+    log "=== End of error details ==="
+  fi
+  # Also try translate-c diagnostic on any headers found post-build
   translate_diag
   die "lightpanda build failed (see diagnostics above)"
 fi
