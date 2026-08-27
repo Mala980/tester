@@ -43,11 +43,11 @@ export LIBCLANG_PATH="${LIBCLANG_PATH:-$(find /usr/lib/llvm-* /usr/lib/llvm-*/li
 
 SRC="$SRC_DIR/obscura"
 if [ ! -d "$SRC/.git" ]; then
-  log "Cloning obscura"
-  git clone --depth 1 "$OBSCURA_REPO" "$SRC"
+  log "Cloning obscura ($OBSCURA_BRANCH)"
+  git clone --depth 1 --branch "$OBSCURA_BRANCH" "$OBSCURA_REPO" "$SRC"
 fi
-git -C "$SRC" fetch --depth 1 origin main 2>/dev/null || true
-git -C "$SRC" checkout -q FETCH_HEAD 2>/dev/null || git -C "$SRC" checkout -q main
+git -C "$SRC" fetch --depth 1 origin "$OBSCURA_BRANCH" 2>/dev/null || true
+git -C "$SRC" checkout -q FETCH_HEAD 2>/dev/null || git -C "$SRC" checkout -q "$OBSCURA_BRANCH"
 OBSCURA_COMMIT=$(git -C "$SRC" rev-parse --short HEAD)
 log "Obscura @ $OBSCURA_COMMIT"
 

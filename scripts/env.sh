@@ -26,7 +26,8 @@ export OBSCURA_V8_CRATE_VERSION="${OBSCURA_V8_CRATE_VERSION:-137.3.0}"
 
 # Upstreams
 export LIGHTPANDA_REPO="${LIGHTPANDA_REPO:-https://github.com/lightpanda-io/browser.git}"
-export OBSCURA_REPO="${OBSCURA_REPO:-https://github.com/h4ckf0r0day/obscura.git}"
+export OBSCURA_REPO="${OBSCURA_REPO:-https://github.com/Mala980/obscura.git}"
+export OBSCURA_BRANCH="${OBSCURA_BRANCH:-engine}"
 export ZIG_V8_FORK_REPO="${ZIG_V8_FORK_REPO:-https://github.com/lightpanda-io/zig-v8-fork.git}"
 
 # ---------------------------------------------------------------------------
