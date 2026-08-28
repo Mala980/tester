@@ -157,6 +157,20 @@ translate_diag() {
   [ "$found" = "1" ] || log "no C headers found to diagnose"
 }
 
+# --- Zig build ---------------------------------------------------------------
+# Embed the architecture-correct snapshot (generated with qemu-user) for fast
+# startup; if unavailable lightpanda creates its snapshot at startup instead.
+SNAP_OPT=""
+if [ ! -s "$CACHE_DIR/lightpanda-snapshot.bin" ]; then
+  log "No lightpanda snapshot — generating it with qemu-user..."
+  "$SCRIPT_DIR/make-snapshots-qemu.sh" "" 0 "$SRC" || true
+fi
+if [ -s "$CACHE_DIR/lightpanda-snapshot.bin" ]; then
+  cp "$CACHE_DIR/lightpanda-snapshot.bin" "$SRC/snapshot.bin"
+  SNAP_OPT="-Dsnapshot_path=snapshot.bin"
+  log "Embedding lightpanda snapshot"
+fi
+
 log "zig build lightpanda (android, ReleaseFast)..."
 cd "$SRC"
 set +e
