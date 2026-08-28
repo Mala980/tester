@@ -164,20 +164,25 @@ translate_diag() {
 if ! grep -q 'libc_file.*b\.libc_file' "$SRC/build.zig" 2>/dev/null; then
   log "Applying translate-c libc_file patch..."
   git -C "$SRC" apply "$SCRIPT_DIR/../patches/lightpanda/translate-c-libc.patch" 2>/dev/null || \
-  python3 - "$SRC/build.zig" <<'PYEOF'
+  perl -i -0pe 's/(\.optimize = mod\.optimize\.\?,\n)(\s*\};)/$1$2\n/g if /addTranslateC/' "$SRC/build.zig" || \
+  python3 -c "
 import sys
 p = sys.argv[1]
 s = open(p).read()
-# Add .libc_file = b.libc_file after every .optimize = mod.optimize.? in addTranslateC blocks
-old = ".optimize = mod.optimize.?,\n    });"
-new = ".optimize = mod.optimize.?,\n        .libc_file = b.libc_file,\n    });"
+old = '.optimize = mod.optimize.?,\n    });'
+new = '.optimize = mod.optimize.?,\n        .libc_file = b.libc_file,\n    });'
 s2 = s.replace(old, new)
 if s2 != s:
-    open(p, "w").write(s2)
-    print("patched translate-c steps: added libc_file")
+    open(p, 'w').write(s2)
+    print('patched: added libc_file to translate-c')
 else:
-    print("translate-c patch already applied or pattern not found")
-PYEOF
+    print('pattern not found or already patched')
+" "$SRC/build.zig"
+  if grep -q 'libc_file.*b\.libc_file' "$SRC/build.zig" 2>/dev/null; then
+    log "translate-c libc_file patch applied successfully"
+  else
+    log "WARNING: translate-c libc_file patch may not have applied correctly"
+  fi
 fi
       rm -f "$hdr.diagerr"
     done
