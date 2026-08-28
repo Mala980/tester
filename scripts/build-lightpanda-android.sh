@@ -28,8 +28,6 @@ if ! grep -q 'exe.linkage = .dynamic' "$SRC/build.zig"; then
 import sys
 p = sys.argv[1]
 s = open(p).read()
-
-# Patch 1: Add PIE + dynamic linkage for Android in addExe()
 old1 = "    const exe_check = b.addLibrary(.{"
 new1 = """    // Android requires position-independent executables; Zig 0.16 defaults to
     // static non-PIE for `aarch64-linux-android`, which bionic rejects.
@@ -41,14 +39,10 @@ new1 = """    // Android requires position-independent executables; Zig 0.16 def
     const exe_check = b.addLibrary(.{"""
 assert old1 in s, "addExe patch point not found"
 s = s.replace(old1, new1, 1)
-
-# Patch 2: Add is_android in linkRust()
 old2 = "    const is_debug = mod.optimize.? == .Debug;\n\n    // One cargo workspace"
 new2 = "    const is_debug = mod.optimize.? == .Debug;\n    const is_android = mod.resolved_target.?.result.abi.isAndroid();\n\n    // One cargo workspace"
 assert old2 in s, "is_android patch point not found"
 s = s.replace(old2, new2, 1)
-
-# Patch 3: Add --target for android cargo build
 old3 = '        "--manifest-path", "src/rust/ffi/Cargo.toml",\n    });\n\n    addDirInputs'
 new3 = '''        "--manifest-path", "src/rust/ffi/Cargo.toml",
     });
@@ -61,8 +55,6 @@ new3 = '''        "--manifest-path", "src/rust/ffi/Cargo.toml",
     addDirInputs'''
 assert old3 in s, "cargo target patch point not found"
 s = s.replace(old3, new3, 1)
-
-# Patch 4: Fix the object path for android triple
 old4 = '    const obj = out_dir.path(b, if (is_debug) "debug" else "release").path(b, "liblightpanda_ffi.a");'
 new4 = """    const obj = if (is_android)
         out_dir.path(b, "aarch64-linux-android").path(b, if (is_debug) "debug" else "release").path(b, "liblightpanda_ffi.a")
@@ -70,11 +62,28 @@ new4 = """    const obj = if (is_android)
         out_dir.path(b, if (is_debug) "debug" else "release").path(b, "liblightpanda_ffi.a");"""
 assert old4 in s, "obj path patch point not found"
 s = s.replace(old4, new4, 1)
-
 open(p, "w").write(s)
 print("build.zig patched for Android")
 PYEOF
 fi
+
+# Apply translate-c libc_file patch unconditionally (idempotent)
+# addTranslateC in zig 0.16 doesn't inherit --libc from zig build,
+# so translate-c uses host headers instead of NDK sysroot.
+log "Ensuring translate-c libc_file patch..."
+python3 -c "
+import sys
+p = sys.argv[1]
+s = open(p).read()
+old = '.optimize = mod.optimize.?,\n    });'
+new = '.optimize = mod.optimize.?,\n        .libc_file = b.libc_file,\n    });'
+s2 = s.replace(old, new)
+if s2 != s:
+    open(p, 'w').write(s2)
+    print('patched: added libc_file to all addTranslateC calls')
+else:
+    print('already patched or pattern not found')
+" "$SRC/build.zig"
 
 # --- Build V8 for android (cached) ----------------------------------------
 "$SCRIPT_DIR/build-lightpanda-v8-android.sh"
@@ -85,21 +94,6 @@ V8_ARCHIVE="$CACHE_DIR/libc_v8_${LIGHTPANDA_V8_VERSION}_android_aarch64.a"
 PREBUILT_DIR="$SRC/.lp-cache/prebuilt-v8/$ZIG_V8_TAG"
 mkdir -p "$PREBUILT_DIR"
 cp "$V8_ARCHIVE" "$PREBUILT_DIR/libc_v8_${LIGHTPANDA_V8_VERSION}_android_aarch64.a"
-
-# --- Zig build ---------------------------------------------------------------
-# Embed the architecture-correct snapshot (generated with qemu-user) for fast
-# startup; if unavailable lightpanda creates its snapshot at startup instead.
-SNAP_OPT=""
-if [ ! -s "$CACHE_DIR/lightpanda-snapshot.bin" ]; then
-  log "No lightpanda snapshot — generating it with qemu-user..."
-  # Only build the lightpanda snapshot (skip obscura=0)
-  "$SCRIPT_DIR/make-snapshots-qemu.sh" "" 0 "$SRC" || true
-fi
-if [ -s "$CACHE_DIR/lightpanda-snapshot.bin" ]; then
-  cp "$CACHE_DIR/lightpanda-snapshot.bin" "$SRC/snapshot.bin"
-  SNAP_OPT="-Dsnapshot_path=snapshot.bin"
-  log "Embedding lightpanda snapshot"
-fi
 
 # --- Fix NDK headers incompatible with zig translate-c -----------------------
 # NDK r27 bionic headers use _Nonnull/_Nullable nullability specifiers on
@@ -127,7 +121,6 @@ apply_header_fixes
 # directly surfaces the real errors.
 translate_diag() {
   local found=0
-  # Search broadly: zig-global cache, .zig-cache, and zig-pkg
   while IFS= read -r hdr; do
     [ -f "$hdr" ] || continue
     found=1
@@ -142,12 +135,10 @@ translate_diag() {
     rm -f "$hdr.diagerr"
   done < <(find "$CACHE_DIR/zig-global" "$SRC/.zig-cache" "$SRC/zig-pkg" \
              -name 'isocline.h' -o -name 'curl.h' -o -name 'sqlite3.h' 2>/dev/null)
-  # Also check the zig global p/ directory (known hash for isocline)
   for dir in "$CACHE_DIR"/zig-global/p/*/include; do
     [ -d "$dir" ] || continue
     for hdr in isocline.h curl.h sqlite3.h; do
       [ -f "$dir/$hdr" ] || continue
-      # Skip if already diagnosed
       grep -qF "$dir/$hdr" /tmp/lp-diag-done 2>/dev/null && continue
       echo "$dir/$hdr" >> /tmp/lp-diag-done
       found=1
@@ -158,25 +149,7 @@ translate_diag() {
       else
         log "translate-c FAILED:"
         cat "$hdr.diagerr" || true
-  fi
-
-# Apply translate-c libc_file patch unconditionally (idempotent)
-# addTranslateC in zig 0.16 doesn't inherit --libc from zig build,
-# so translate-c uses host headers instead of NDK sysroot.
-log "Ensuring translate-c libc_file patch..."
-python3 -c "
-import sys
-p = sys.argv[1]
-s = open(p).read()
-old = '.optimize = mod.optimize.?,\n    });'
-new = '.optimize = mod.optimize.?,\n        .libc_file = b.libc_file,\n    });'
-s2 = s.replace(old, new)
-if s2 != s:
-    open(p, 'w').write(s2)
-    print('patched: added libc_file to all addTranslateC calls')
-else:
-    print('already patched or pattern not found')
-" "$SRC/build.zig"
+      fi
       rm -f "$hdr.diagerr"
     done
   done
@@ -198,14 +171,11 @@ set -e
 if [ "$ZIG_RC" != "0" ]; then
   log "zig build FAILED (rc=$ZIG_RC) — analyzing errors..."
   sync
-  # Extract error details from the full log (translate-c errors are captured
-  # by tee before pipe truncation)
   if [ -f "$CACHE_DIR/build-lightpanda.log" ]; then
     log "=== Full translate-c error details from build log ==="
     grep -A2 "error:" "$CACHE_DIR/build-lightpanda.log" | head -40 || true
     log "=== End of error details ==="
   fi
-  # Also try translate-c diagnostic on any headers found post-build
   translate_diag
   die "lightpanda build failed (see diagnostics above)"
 fi
