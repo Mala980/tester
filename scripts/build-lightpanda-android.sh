@@ -160,12 +160,11 @@ translate_diag() {
         cat "$hdr.diagerr" || true
   fi
 
-# Apply the translate-c libc_file patch (makes addTranslateC use --libc for NDK sysroot)
-if ! grep -q 'libc_file.*b\.libc_file' "$SRC/build.zig" 2>/dev/null; then
-  log "Applying translate-c libc_file patch..."
-  git -C "$SRC" apply "$SCRIPT_DIR/../patches/lightpanda/translate-c-libc.patch" 2>/dev/null || \
-  perl -i -0pe 's/(\.optimize = mod\.optimize\.\?,\n)(\s*\};)/$1$2\n/g if /addTranslateC/' "$SRC/build.zig" || \
-  python3 -c "
+# Apply translate-c libc_file patch unconditionally (idempotent)
+# addTranslateC in zig 0.16 doesn't inherit --libc from zig build,
+# so translate-c uses host headers instead of NDK sysroot.
+log "Ensuring translate-c libc_file patch..."
+python3 -c "
 import sys
 p = sys.argv[1]
 s = open(p).read()
@@ -174,16 +173,10 @@ new = '.optimize = mod.optimize.?,\n        .libc_file = b.libc_file,\n    });'
 s2 = s.replace(old, new)
 if s2 != s:
     open(p, 'w').write(s2)
-    print('patched: added libc_file to translate-c')
+    print('patched: added libc_file to all addTranslateC calls')
 else:
-    print('pattern not found or already patched')
+    print('already patched or pattern not found')
 " "$SRC/build.zig"
-  if grep -q 'libc_file.*b\.libc_file' "$SRC/build.zig" 2>/dev/null; then
-    log "translate-c libc_file patch applied successfully"
-  else
-    log "WARNING: translate-c libc_file patch may not have applied correctly"
-  fi
-fi
       rm -f "$hdr.diagerr"
     done
   done
