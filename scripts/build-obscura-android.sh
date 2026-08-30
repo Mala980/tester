@@ -270,13 +270,13 @@ if [ "${BUILD_STEALTH:-1}" = "1" ]; then
     --manifest-path "$SRC/Cargo.toml" -p obscura-cli --bins --features render,stealth
   stage_bins "stealth"
 
-  log "Building obscura (full release — all features)..."
+  log "Building obscura (full release — all features, gstreamer excluded for Android)..."
   V8_FROM_SOURCE=1 NUM_JOBS="$JOBS" CARGO_BUILD_JOBS="$JOBS" \
     OBSCURA_SNAPSHOT_FILE="$SNAPSHOT_FILE" \
     CARGO_TARGET_DIR="$CARGO_TARGET_DIR" \
     cargo build --release --target "$RUST_TARGET" \
     --manifest-path "$SRC/Cargo.toml" -p obscura-cli --bins \
-    --features render,stealth,websocket,canvas2d,gstreamer,webgl-gpu,render-gpu,media
+    --features render,stealth,websocket,canvas2d,webgl-gpu,render-gpu,media
   stage_bins "full"
 fi
 
