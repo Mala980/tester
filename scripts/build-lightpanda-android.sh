@@ -67,23 +67,10 @@ print("build.zig patched for Android")
 PYEOF
 fi
 
-# Apply translate-c libc_file patch unconditionally (idempotent)
-# addTranslateC in zig 0.16 doesn't inherit --libc from zig build,
-# so translate-c uses host headers instead of NDK sysroot.
-log "Ensuring translate-c libc_file patch..."
-python3 -c "
-import sys
-p = sys.argv[1]
-s = open(p).read()
-old = '.optimize = mod.optimize.?,\n    });'
-new = '.optimize = mod.optimize.?,\n        .libc_file = b.libc_file,\n    });'
-s2 = s.replace(old, new)
-if s2 != s:
-    open(p, 'w').write(s2)
-    print('patched: added libc_file to all addTranslateC calls')
-else:
-    print('already patched or pattern not found')
-" "$SRC/build.zig"
+# NOTE: Do NOT try to add .libc_file to addTranslateC — Build.Step.TranslateC
+# in zig 0.16 has no such field. Translate-c already receives the libc file
+# through the --listen=- protocol; the real blocker is NDK bionic headers'
+# _Nonnull/_Nullable syntax, fixed by apply_header_fixes() below.
 
 # --- Build V8 for android (cached) ----------------------------------------
 "$SCRIPT_DIR/build-lightpanda-v8-android.sh"
