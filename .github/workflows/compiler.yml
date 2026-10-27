@@ -35,12 +35,11 @@ jobs:
           curl -fsSL https://claude.ai/install.sh | bash
 
       - name: Setup upterm session
-        uses: owenthereal/action-upterm@v1
+        uses: owenthereal/action-upterm@v2
         if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
           GH_TOKEN: ${{ github.token }}
         with:
-          limit-access-to-actor: true
           wait-timeout-minutes: 5
             
       - name: Upload artifacts
